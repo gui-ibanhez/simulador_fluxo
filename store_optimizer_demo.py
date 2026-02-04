@@ -39,6 +39,21 @@ def make_fake_roster(num_employees: int, seed: int) -> list[dict]:
     return [{"gender": rng.choice(["M", "F"])} for _ in range(num_employees)]
 
 
+def make_roster_from_composition(men: int, women: int) -> list[dict]:
+    """Build roster with exactly N men and M women."""
+    return [{"gender": "M"}] * men + [{"gender": "F"}] * women
+
+
+def scale_roster_composition(men: int, women: int, total: int) -> list[dict]:
+    """Scale men/women ratio to total employees (for hiring search)."""
+    if men + women <= 0:
+        return [{"gender": "M"}] * total
+    n_m = round(total * men / (men + women))
+    n_m = max(0, min(total, n_m))
+    n_f = total - n_m
+    return make_roster_from_composition(n_m, n_f)
+
+
 def make_fake_demand(
     dates,
     seed,
@@ -71,10 +86,16 @@ def make_fake_demand(
     rng = random.Random(seed)
     demand = []
     for date in dates:
-        if date.weekday() < 5:
-            base_m, base_a = base_weekday
+        wd = date.weekday()  # 0=Mon .. 6=Sun
+        if wd < 5:
+            bm, ba = base_weekday
+            base_m = bm[wd] if isinstance(bm, list) else bm
+            base_a = ba[wd] if isinstance(ba, list) else ba
         else:
-            base_m, base_a = base_weekend
+            bm, ba = base_weekend
+            idx = wd - 5  # 0=Sat, 1=Sun
+            base_m = bm[idx] if isinstance(bm, list) else bm
+            base_a = ba[idx] if isinstance(ba, list) else ba
         if add_random:
             m = max(1, base_m + rng.choice([-1, 0, 1]))
             a = max(1, base_a + rng.choice([-1, 0, 1]))
@@ -119,6 +140,21 @@ def _parse_store_profiles(s: str) -> dict[str, str]:
             store_id, profile = part.split(":", 1)
             result[store_id.strip()] = profile.strip()
     return result
+
+
+def _parse_base_arg(val: str | int, expected_len: int | None = None) -> int | list[int]:
+    """Parse base arg: '5' -> 5, '5,6,5,5,6' -> [5,6,5,5,6]. If expected_len, validate length."""
+    if isinstance(val, int):
+        return val
+    s = str(val).strip()
+    if "," in s:
+        parts = [int(x.strip()) for x in s.split(",")]
+        if expected_len is not None and len(parts) != expected_len:
+            raise ValueError(
+                f"Expected {expected_len} comma-sep values, got {len(parts)}"
+            )
+        return parts
+    return int(s)
 
 
 def _parse_constraint_specs(s: str) -> list[tuple]:
@@ -228,6 +264,18 @@ def main():
         help="Comma-separated store IDs; demand is computed per store (variable by store).",
     )
     parser.add_argument("--current_employees", type=int, default=10, help="Current roster size.")
+    parser.add_argument(
+        "--men",
+        type=int,
+        default=None,
+        help="Number of men in roster. Use with --women to specify exact composition (e.g. --men 7 --women 8).",
+    )
+    parser.add_argument(
+        "--women",
+        type=int,
+        default=None,
+        help="Number of women in roster. Use with --men to specify exact composition.",
+    )
     parser.add_argument("--min_employees", type=int, default=8, help="Min employees to try (hire).")
     parser.add_argument("--max_employees", type=int, default=14, help="Max employees to try.")
     parser.add_argument("--seed", type=int, default=7, help="Random seed for fake data.")
@@ -256,10 +304,11 @@ def main():
         help="Tiers rule: max_cust,emp pairs e.g. '50,1,100,2,inf,4'.",
     )
     # Direct demand (fake) base counts per shift (weekday / weekend)
-    parser.add_argument("--direct_base_M_weekday", type=int, default=5, help="Direct fake: base Morning (weekday).")
-    parser.add_argument("--direct_base_A_weekday", type=int, default=4, help="Direct fake: base Afternoon (weekday).")
-    parser.add_argument("--direct_base_M_weekend", type=int, default=4, help="Direct fake: base Morning (weekend).")
-    parser.add_argument("--direct_base_A_weekend", type=int, default=3, help="Direct fake: base Afternoon (weekend).")
+    # Single int = all days in group; comma-sep = per-day: M_weekday "5,6,5,5,6" = Mon-Fri, M_weekend "4,3" = Sat,Sun
+    parser.add_argument("--direct_base_M_weekday", type=str, default="5", help="Base Morning weekdays. Int or Mon,Tue,Wed,Thu,Fri.")
+    parser.add_argument("--direct_base_A_weekday", type=str, default="4", help="Base Afternoon weekdays. Int or Mon,Tue,Wed,Thu,Fri.")
+    parser.add_argument("--direct_base_M_weekend", type=str, default="4", help="Base Morning weekend. Int or Sat,Sun.")
+    parser.add_argument("--direct_base_A_weekend", type=str, default="3", help="Base Afternoon weekend. Int or Sat,Sun.")
     parser.add_argument(
         "--direct_deterministic",
         action="store_true",
@@ -303,6 +352,36 @@ def main():
         help="Max weekend work shifts per woman per month. None = disabled (no constraint).",
     )
     parser.add_argument(
+        "--min_sunday_off_per_month",
+        type=int,
+        default=1,
+        help="Min Sundays off per employee per month. 0 = disabled.",
+    )
+    parser.add_argument(
+        "--min_sunday_off_women",
+        type=int,
+        default=2,
+        help="Min Sundays off per woman per month. 0 = disabled.",
+    )
+    parser.add_argument(
+        "--women_sunday_off_alternate",
+        action="store_true",
+        default=True,
+        help="Women's Sundays off must alternate (no two consecutive). Default True.",
+    )
+    parser.add_argument(
+        "--no_women_sunday_off_alternate",
+        action="store_false",
+        dest="women_sunday_off_alternate",
+        help="Disable alternating constraint for women's Sundays off.",
+    )
+    parser.add_argument(
+        "--spread_sunday_shifts_penalty",
+        type=int,
+        default=10,
+        help="Penalty for imbalance in Sunday shifts across employees. 0 = disabled.",
+    )
+    parser.add_argument(
         "--target_min_women_ratio",
         type=float,
         default=0.4,
@@ -322,6 +401,17 @@ def main():
     if not store_ids:
         store_ids = ["store"]
 
+    # Roster composition: --men N --women M sets current_employees and explicit roster
+    has_explicit_roster = args.men is not None or args.women is not None
+    roster_men = (args.men if args.men is not None else 0) if has_explicit_roster else 0
+    roster_women = (args.women if args.women is not None else 0) if has_explicit_roster else 0
+    if has_explicit_roster:
+        if roster_men < 0 or roster_women < 0:
+            raise ValueError("--men and --women must be non-negative.")
+        args.current_employees = roster_men + roster_women
+        if args.current_employees == 0:
+            raise ValueError("Roster must have at least one employee (--men + --women > 0).")
+
     # Print all parameters (including defaults)
     print("Parameters:")
     for name in sorted(vars(args)):
@@ -333,6 +423,10 @@ def main():
     work_shifts = ["M", "A"]
 
     if args.demand == "direct":
+        bm_wd = _parse_base_arg(args.direct_base_M_weekday, 5)
+        ba_wd = _parse_base_arg(args.direct_base_A_weekday, 5)
+        bm_we = _parse_base_arg(args.direct_base_M_weekend, 2)
+        ba_we = _parse_base_arg(args.direct_base_A_weekend, 2)
         store_profiles = _parse_store_profiles(args.store_profiles)
         demand_by_store = {}
         for store_id in store_ids:
@@ -340,12 +434,12 @@ def main():
             demand_one = make_fake_demand(
                 dates,
                 args.seed,
-                base_weekday=(args.direct_base_M_weekday, args.direct_base_A_weekday),
-                base_weekend=(args.direct_base_M_weekend, args.direct_base_A_weekend),
-                base_M_weekday=args.direct_base_M_weekday,
-                base_A_weekday=args.direct_base_A_weekday,
-                base_M_weekend=args.direct_base_M_weekend,
-                base_A_weekend=args.direct_base_A_weekend,
+                base_weekday=(bm_wd, ba_wd),
+                base_weekend=(bm_we, ba_we),
+                base_M_weekday=bm_wd,
+                base_A_weekday=ba_wd,
+                base_M_weekend=bm_we,
+                base_A_weekend=ba_we,
                 add_random=not args.direct_deterministic,
                 profile=profile,
             )
@@ -407,6 +501,10 @@ def main():
         "min_days_off_per_week": args.min_days_off_per_week if args.min_days_off_per_week else None,
         "max_consecutive_work_days": args.max_consecutive_work_days if args.max_consecutive_work_days else None,
         "max_weekend_work_shifts_women": args.max_weekend_work_shifts_women,
+        "min_sunday_off_per_month": args.min_sunday_off_per_month,
+        "min_sunday_off_women": args.min_sunday_off_women,
+        "women_sunday_off_alternate": args.women_sunday_off_alternate,
+        "spread_sunday_shifts_penalty": args.spread_sunday_shifts_penalty,
     }
 
     for store_id in store_ids:
@@ -426,7 +524,11 @@ def main():
 
         print(f"\n=== Store: {store_id} ===")
         print(f"Solving current roster: {args.current_employees} employees")
-        roster = make_fake_roster(args.current_employees, args.seed)
+        roster = (
+            make_roster_from_composition(roster_men, roster_women)
+            if has_explicit_roster
+            else make_fake_roster(args.current_employees, args.seed)
+        )
         understaffed = False
         relaxed_result = None
         try:
@@ -522,6 +624,11 @@ def main():
 
         best = None
         for num_employees in range(effective_min, args.max_employees + 1):
+            try_roster = (
+                scale_roster_composition(roster_men, roster_women, num_employees)
+                if has_explicit_roster
+                else make_fake_roster(num_employees, args.seed)
+            )
             result = solve_once(
                 num_employees,
                 dates,
@@ -531,7 +638,7 @@ def main():
                 args.params,
                 args.output_proto,
                 write_proto=False,
-                roster=make_fake_roster(num_employees, args.seed),
+                roster=try_roster,
             )
             if result["status"] not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 continue
@@ -554,7 +661,11 @@ def main():
             continue
 
         best_employees, best_result = best
-        best_roster = make_fake_roster(best_employees, args.seed)
+        best_roster = (
+            scale_roster_composition(roster_men, roster_women, best_employees)
+            if has_explicit_roster
+            else make_fake_roster(best_employees, args.seed)
+        )
         schedule_a_label = (
             f"[{store_id}] Schedule A (recommended): Hire {best_employees - args.current_employees}"
             if understaffed and best_employees > args.current_employees

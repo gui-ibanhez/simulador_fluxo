@@ -9,11 +9,13 @@ import unittest
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEMO_SCRIPT = os.path.join(PROJECT_ROOT, "store_optimizer_demo.py")
 FAST_PARAMS = "max_time_in_seconds:0.5"
+VENV_PYTHON = os.path.join(PROJECT_ROOT, ".venv", "bin", "python")
 
 
 def run_demo(*args: str) -> subprocess.CompletedProcess:
     """Run store_optimizer_demo.py with given args."""
-    cmd = [sys.executable, DEMO_SCRIPT] + list(args)
+    python = VENV_PYTHON if os.path.isfile(VENV_PYTHON) else sys.executable
+    cmd = [python, DEMO_SCRIPT] + list(args)
     return subprocess.run(
         cmd,
         cwd=PROJECT_ROOT,
@@ -62,6 +64,23 @@ class TestDemoTimeAndRoster(unittest.TestCase):
             "--params", FAST_PARAMS,
         )
         self.assertEqual(r.returncode, 0)
+
+    def test_roster_men_women(self):
+        # store_optimizer_demo.py --men 7 --women 8 with per-day demand and work/rest constraints
+        r = run_demo(
+            "--men", "7",
+            "--women", "8",
+            "--direct_base_M_weekday", "5,6,5,5,6",
+            "--direct_base_A_weekday", "4,5,4,4,5",
+            "--direct_base_M_weekend", "4,3",
+            "--direct_base_A_weekend", "3,3",
+            "--max_shifts_per_week", "6",
+            "--min_days_off_per_week", "1",
+            "--direct_deterministic",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("employee", r.stdout)
 
     def test_seed(self):
         # store_optimizer_demo.py --seed 42 --params max_time_in_seconds:0.5
@@ -150,6 +169,18 @@ class TestDemoDirectDemand(unittest.TestCase):
         )
         self.assertEqual(r.returncode, 0)
 
+    def test_direct_base_per_day(self):
+        # Per-day demand: weekday 5,6,5,5,6 (Mon-Fri M), weekend 4,3 (Sat,Sun M)
+        r = run_demo(
+            "--direct_base_M_weekday", "5,6,5,5,6",
+            "--direct_base_A_weekday", "4,4,4,4,4",
+            "--direct_base_M_weekend", "4,3",
+            "--direct_base_A_weekend", "3,3",
+            "--direct_deterministic",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+
 
 class TestDemoOptimizerConstraints(unittest.TestCase):
     def test_excess_penalties(self):
@@ -191,6 +222,20 @@ class TestDemoOptimizerConstraints(unittest.TestCase):
     def test_max_weekend_work_shifts_women(self):
         # store_optimizer_demo.py --max_weekend_work_shifts_women 2 --params max_time_in_seconds:0.5
         r = run_demo("--max_weekend_work_shifts_women", "2", "--params", FAST_PARAMS)
+        self.assertEqual(r.returncode, 0)
+
+    def test_min_sunday_off(self):
+        # store_optimizer_demo.py --min_sunday_off_per_month 1 --min_sunday_off_women 2 --params max_time_in_seconds:0.5
+        r = run_demo(
+            "--min_sunday_off_per_month", "1",
+            "--min_sunday_off_women", "2",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+
+    def test_spread_sunday_shifts(self):
+        # store_optimizer_demo.py --spread_sunday_shifts_penalty 10 --params max_time_in_seconds:0.5
+        r = run_demo("--spread_sunday_shifts_penalty", "10", "--params", FAST_PARAMS)
         self.assertEqual(r.returncode, 0)
 
     def test_target_women_ratio(self):

@@ -305,7 +305,11 @@ def build_model(
                 )
                 penalty = int(excess_penalties.get(shift_name, 0))
                 if penalty > 0 and num_employees > required:
-                    excess = model.new_int_var(0, num_employees - required, "")
+                    excess = model.new_int_var(
+                        0,
+                        num_employees - required,
+                        f"excess_cover_day{dates[d].day}_{shift_name}",
+                    )
                     model.add(excess == worked - required)
                     obj_int_vars.append(excess)
                     obj_int_coeffs.append(penalty)
@@ -316,6 +320,7 @@ def build_model(
         s_index = shift_index[shift_ref] if isinstance(shift_ref, str) else shift_ref
         for e in range(num_employees):
             works = [work[e, s_index, d] for d in range(num_days)]
+            shift_name = shifts[s_index] if s_index < len(shifts) else str(s_index)
             variables, coeffs = add_soft_sequence_constraint(
                 model,
                 works,
@@ -325,7 +330,7 @@ def build_model(
                 soft_max,
                 hard_max,
                 max_cost,
-                f"seq(employee {e}, shift {s_index})",
+                f"seq(employee {e}, {shift_name})",
             )
             obj_bool_vars.extend(variables)
             obj_bool_coeffs.extend(coeffs)
@@ -347,7 +352,7 @@ def build_model(
                     soft_max,
                     hard_max,
                     max_cost,
-                    f"weekly(employee {e}, shift {s_index}, week {w})",
+                    f"weekly(employee {e}, {shifts[s_index]}, week {w})",
                 )
                 obj_int_vars.extend(variables)
                 obj_int_coeffs.extend(coeffs)
@@ -407,6 +412,71 @@ def build_model(
                     )
                     <= max_weekend_work_shifts_women
                 )
+
+    # Sunday-specific constraints.
+    sunday_indices = [d for d in range(num_days) if dates[d].weekday() == 6]
+    min_sunday_off = int(constraints.get("min_sunday_off_per_month", 0))
+    if off_index is not None and min_sunday_off > 0 and sunday_indices:
+        for e in range(num_employees):
+            model.add(
+                sum(work[e, off_index, d] for d in sunday_indices) >= min_sunday_off
+            )
+
+    min_sunday_off_women = int(constraints.get("min_sunday_off_women", 0))
+    women_alternate = constraints.get("women_sunday_off_alternate", True)
+    if (
+        off_index is not None
+        and min_sunday_off_women > 0
+        and sunday_indices
+        and len(sunday_indices) >= 2
+    ):
+        for e in range(num_employees):
+            if roster[e].get("gender") == "F":
+                model.add(
+                    sum(work[e, off_index, d] for d in sunday_indices)
+                    >= min_sunday_off_women
+                )
+                if women_alternate:
+                    for i in range(len(sunday_indices) - 1):
+                        model.add(
+                            work[e, off_index, sunday_indices[i]]
+                            + work[e, off_index, sunday_indices[i + 1]]
+                            <= 1
+                        )
+
+    # Spread Sunday shifts evenly (soft).
+    spread_penalty = int(constraints.get("spread_sunday_shifts_penalty", 0))
+    if spread_penalty > 0 and sunday_indices:
+        sunday_work = []
+        for e in range(num_employees):
+            sw = model.new_int_var(
+                0, len(sunday_indices) * len(work_shift_indices), f"sunday_work_{e}"
+            )
+            model.add(
+                sw
+                == sum(
+                    work[e, s, d]
+                    for s in work_shift_indices
+                    for d in sunday_indices
+                )
+            )
+            sunday_work.append(sw)
+        max_sun = model.new_int_var(
+            0, len(sunday_indices) * len(work_shift_indices), "max_sunday_work"
+        )
+        min_sun = model.new_int_var(
+            0, len(sunday_indices) * len(work_shift_indices), "min_sunday_work"
+        )
+        model.add_max_equality(max_sun, sunday_work)
+        model.add_min_equality(min_sun, sunday_work)
+        spread_var = model.new_int_var(
+            0,
+            len(sunday_indices) * len(work_shift_indices),
+            "spread_sunday_shifts",
+        )
+        model.add(spread_var == max_sun - min_sun)
+        obj_int_vars.append(spread_var)
+        obj_int_coeffs.append(spread_penalty)
 
     # Objective
     if obj_bool_vars or obj_int_vars:
@@ -549,15 +619,17 @@ def print_solution(
         print("Penalties:")
     for i, var in enumerate(obj_bool_vars):
         if solver.boolean_value(var):
+            rule = var.name or f"constraint_{i}"
             penalty = obj_bool_coeffs[i]
             if penalty > 0:
-                print(f"  {var.name} violated, penalty={penalty}")
+                print(f"  {rule}: violated, penalty={penalty}")
             else:
-                print(f"  {var.name} fulfilled, gain={-penalty}")
+                print(f"  {rule}: fulfilled, gain={-penalty}")
     for i, var in enumerate(obj_int_vars):
         if solver.value(var) > 0:
+            rule = var.name or f"penalty_{i}"
             print(
-                f"  {var.name} violated by {solver.value(var)}, linear"
+                f"  {rule}: violated by {solver.value(var)}, linear"
                 f" penalty={obj_int_coeffs[i]}"
             )
 

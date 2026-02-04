@@ -9,11 +9,13 @@ import unittest
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OPTIMIZER_SCRIPT = os.path.join(PROJECT_ROOT, "store_staffing_optimizer.py")
 FAST_PARAMS = "max_time_in_seconds:0.5"
+VENV_PYTHON = os.path.join(PROJECT_ROOT, ".venv", "bin", "python")
 
 
 def run_optimizer(*args: str) -> subprocess.CompletedProcess:
     """Run store_staffing_optimizer.py with given args."""
-    cmd = [sys.executable, OPTIMIZER_SCRIPT] + list(args)
+    python = VENV_PYTHON if os.path.isfile(VENV_PYTHON) else sys.executable
+    cmd = [python, OPTIMIZER_SCRIPT] + list(args)
     return subprocess.run(
         cmd,
         cwd=PROJECT_ROOT,
