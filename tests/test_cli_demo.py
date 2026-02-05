@@ -550,6 +550,65 @@ class TestDemoRosterAndPreviousSchedule(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
 
 
+class TestDemoFixedShift(unittest.TestCase):
+    """Tests for --fixed_shift (employee always works same shift)."""
+
+    FIXTURES = os.path.join(PROJECT_ROOT, "tests", "fixtures")
+
+    def test_fixed_shift_off(self):
+        # Default: no constraint, employees can work any shift
+        r = run_demo(
+            "--store_shifts", "store:3",
+            "--fixed_shift", "off",
+            "--direct_base_by_day", "2,2,2",
+            "--direct_deterministic",
+            "--current_employees", "9",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+
+    def test_fixed_shift_model(self):
+        # Solver picks one shift per employee
+        r = run_demo(
+            "--store_shifts", "store:3",
+            "--fixed_shift", "model",
+            "--direct_base_by_day", "2,2,2",
+            "--direct_deterministic",
+            "--current_employees", "9",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+
+    def test_fixed_shift_roster(self):
+        # Roster defines shift per employee
+        r = run_demo(
+            "--store_shifts", "store:3",
+            "--roster_file", os.path.join(self.FIXTURES, "roster_with_shift.json"),
+            "--fixed_shift", "roster",
+            "--direct_base_by_day", "2,2,2",
+            "--direct_deterministic",
+            "--min_sunday_off_per_month", "0",
+            "--min_sunday_off_women", "0",
+            "--params", FAST_PARAMS,
+        )
+        self.assertEqual(r.returncode, 0)
+
+    def test_fixed_shift_roster_missing_shift_field(self):
+        # Roster without shift field: employees without 'shift' use model-based assignment
+        r = run_demo(
+            "--store_shifts", "store:3",
+            "--roster_file", os.path.join(self.FIXTURES, "roster.json"),
+            "--fixed_shift", "roster",
+            "--direct_base_by_day", "1,1,1",
+            "--direct_deterministic",
+            "--min_sunday_off_per_month", "0",
+            "--min_sunday_off_women", "0",
+            "--params", FAST_PARAMS,
+        )
+        # Should succeed: employees without shift use model-based assignment
+        self.assertEqual(r.returncode, 0)
+
+
 class TestDemoErrorCases(unittest.TestCase):
     def test_invalid_demand(self):
         # store_optimizer_demo.py --demand invalid (expects non-zero exit)
@@ -566,3 +625,4 @@ class TestDemoErrorCases(unittest.TestCase):
         # store_optimizer_demo.py --demand estimation --rule tiers --tiers 50,1,100 (expects non-zero exit)
         r = run_demo("--demand", "estimation", "--rule", "tiers", "--tiers", "50,1,100")
         self.assertNotEqual(r.returncode, 0)
+

@@ -121,6 +121,19 @@ python store_optimizer_demo.py --min_work_days_per_month 15 --min_work_days_pena
 python store_optimizer_demo.py --target_min_women_ratio 0.35 --target_max_women_ratio 0.65 --params max_time_in_seconds:0.5
 ```
 
+### Fixed shift constraint
+Each employee always works the same shift (e.g., assigned to S1, they only work S1 on all working days).
+```bash
+# Solver picks which shift each employee is assigned to
+python store_optimizer_demo.py --store_shifts "store:3" --fixed_shift model --direct_base_by_day "3,3,3" --direct_deterministic --current_employees 9 --params max_time_in_seconds:0.5
+
+# Roster defines each employee's shift (requires 'shift' field in roster JSON)
+python store_optimizer_demo.py --store_shifts "store:3" --roster_file tests/fixtures/roster_with_shift.json --fixed_shift roster --direct_base_by_day "2,2,2" --direct_deterministic --params max_time_in_seconds:0.5
+```
+- `--fixed_shift off`: disabled (default) – employees can work any shift
+- `--fixed_shift model`: solver picks one shift per employee
+- `--fixed_shift roster`: shift pre-defined in roster JSON (`{"id": "E001", "shift": "S1"}`)
+
 ### Solver
 ```bash
 python store_optimizer_demo.py --params max_time_in_seconds:0.5

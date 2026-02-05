@@ -684,6 +684,12 @@ def main():
         action="store_true",
         help="Log debug info for women alternate Sundays and min Sunday off constraints.",
     )
+    parser.add_argument(
+        "--fixed_shift",
+        choices=("off", "model", "roster"),
+        default="off",
+        help="Fixed shift constraint: 'off' (disabled), 'model' (solver picks one shift per employee), 'roster' (shift defined in roster 'shift' field).",
+    )
     args = parser.parse_args()
 
     # Dynamic defaults based on max_shifts_per_week
@@ -910,6 +916,7 @@ def main():
             "min_work_days_per_month": args.min_work_days_per_month,
             "min_work_days_penalty": args.min_work_days_penalty,
             "debug_sunday_constraints": args.debug_sunday_constraints,
+            "fixed_shift_mode": args.fixed_shift if args.fixed_shift != "off" else None,
         }
         if args.previous_schedule:
             try:

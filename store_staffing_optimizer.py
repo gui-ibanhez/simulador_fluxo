@@ -769,6 +769,54 @@ def build_model(
                 obj_bool_vars.append(work[e, s_preferred, d])
                 obj_bool_coeffs.append(-stability_penalty)
 
+    # Fixed shift constraint: each employee always works the same shift.
+    # Mode "model": solver picks which shift each employee is assigned to.
+    # Mode "roster": shift is pre-defined in roster[e]["shift"].
+    fixed_shift_mode = constraints.get("fixed_shift_mode")
+    if fixed_shift_mode == "model":
+        # Create decision vars: assigned_shift[e, s] = 1 if employee e is assigned to shift s
+        assigned_shift = {}
+        for e in range(num_employees):
+            for s in work_shift_indices:
+                assigned_shift[e, s] = model.new_bool_var(f"assigned_shift_{e}_{s}")
+            # Exactly one shift per employee
+            model.add_exactly_one(assigned_shift[e, s] for s in work_shift_indices)
+        # Can only work assigned shift: work[e, s, d] <= assigned_shift[e, s]
+        for e in range(num_employees):
+            for s in work_shift_indices:
+                for d in range(num_days):
+                    model.add(work[e, s, d] <= assigned_shift[e, s])
+    elif fixed_shift_mode == "roster":
+        # Shift is pre-defined in roster; forbid working any other shift.
+        # Employees without a 'shift' field (e.g., padded during hire search) use model behavior.
+        employees_without_shift = []
+        for e in range(num_employees):
+            emp_shift = roster[e].get("shift")
+            if emp_shift is None:
+                employees_without_shift.append(e)
+                continue
+            if emp_shift not in shift_index:
+                raise ValueError(
+                    f"Employee {roster[e].get('id', e)} has shift '{emp_shift}' "
+                    f"which is not in shifts: {shifts}"
+                )
+            assigned_s = shift_index[emp_shift]
+            # Forbid all other work shifts
+            for s in work_shift_indices:
+                if s != assigned_s:
+                    for d in range(num_days):
+                        model.add(work[e, s, d] == 0)
+        # For employees without shift: use model-based assignment (solver picks)
+        if employees_without_shift:
+            for e in employees_without_shift:
+                assigned_shift_e = {}
+                for s in work_shift_indices:
+                    assigned_shift_e[s] = model.new_bool_var(f"assigned_shift_{e}_{s}")
+                model.add_exactly_one(assigned_shift_e[s] for s in work_shift_indices)
+                for s in work_shift_indices:
+                    for d in range(num_days):
+                        model.add(work[e, s, d] <= assigned_shift_e[s])
+
     # Objective
     if obj_bool_vars or obj_int_vars:
         model.minimize(
