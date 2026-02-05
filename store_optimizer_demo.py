@@ -575,6 +575,7 @@ def main():
         default="",
         help="When --store_shifts: single int or comma-sep per shift (e.g. '1' or '1,1,2,1,1,2').",
     )
+    parser.add_argument("--quadratic_excess_penalty", type=int, default=0, help="Square the excess penalty to discourage spikes (e.g. prefer 1,1,1 over 0,0,3).")
     parser.add_argument("--max_shifts_per_week", type=int, default=6, help="Max working shifts per employee per week. Default 6 so min_days_off(1)+max_shifts(6)=7. Use 0 to disable.")
     parser.add_argument("--min_days_off_per_week", type=int, default=None, help="Min rest days per employee per week (Sun–Sat). Default 7 - max_shifts_per_week. Use 0 to disable.")
     parser.add_argument("--max_consecutive_work_days", type=int, default=None, help="Max consecutive working days. Default max_shifts_per_week. Use 0 to disable.")
@@ -894,6 +895,7 @@ def main():
             excess = {"M": args.excess_penalty_M, "A": args.excess_penalty_A}
         c = {
             "excess_cover_penalties": excess,
+            "quadratic_excess_penalty": args.quadratic_excess_penalty,
             "sequence_constraints": sequence_constraints,
             "weekly_sum_constraints": weekly_sum_constraints,
             "max_shifts_per_week": args.max_shifts_per_week if args.max_shifts_per_week else None,

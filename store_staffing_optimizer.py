@@ -404,6 +404,26 @@ def build_model(
                     obj_int_vars.append(excess)
                     obj_int_coeffs.append(penalty)
 
+                quadratic_penalty = int(constraints.get("quadratic_excess_penalty", 0))
+                if quadratic_penalty > 0 and num_employees > required:
+                     # Reuse excess var if created, otherwise create it
+                    if not (penalty > 0 and num_employees > required):
+                         excess = model.new_int_var(
+                            0,
+                            num_employees - required,
+                            f"excess_cover_day{dates[d].day}_{shift_name}_sq_base",
+                        )
+                         model.add(excess == worked - required)
+                    
+                    excess_sq = model.new_int_var(
+                        0,
+                        (num_employees - required) ** 2,
+                        f"excess_cover_day{dates[d].day}_{shift_name}_sq",
+                    )
+                    model.add_multiplication_equality(excess_sq, [excess, excess])
+                    obj_int_vars.append(excess_sq)
+                    obj_int_coeffs.append(quadratic_penalty)
+
     # Optional sequence constraints per shift.
     for ct in constraints.get("sequence_constraints", []):
         shift_ref, hard_min, soft_min, min_cost, soft_max, hard_max, max_cost = ct
@@ -1003,8 +1023,8 @@ def print_solution(
         if solver.value(var) > 0:
             rule = var.name or f"penalty_{i}"
             print(
-                f"  {rule}: violated by {solver.value(var)}, linear"
-                f" penalty={obj_int_coeffs[i]}"
+                f"  {rule}: violated by {solver.value(var)}, "
+                f"penalty weight={obj_int_coeffs[i]}"
             )
 
 
