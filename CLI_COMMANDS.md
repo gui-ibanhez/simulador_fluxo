@@ -20,9 +20,32 @@ python store_optimizer_demo.py --params max_time_in_seconds:0.5
 ```bash
 python store_optimizer_demo.py --year 2024 --month 6 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --store_ids store_A,store_B --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --store_shifts "store_A:6,store_B:3" --demand direct --direct_base_by_day 4 --direct_deterministic --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --current_employees 12 --min_employees 10 --max_employees 15 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --seed 42 --params max_time_in_seconds:0.5
 ```
+
+### Roster file and schedule I/O
+Load roster from JSON or CSV (overrides `--men`/`--women`). Export/import schedules for month-to-month continuity.
+```bash
+python store_optimizer_demo.py --roster_file roster.json --direct_base_M_weekday 2 --direct_base_A_weekday 2 --direct_deterministic --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --roster_file roster.csv --direct_base_M_weekday 2 --direct_base_A_weekday 2 --params max_time_in_seconds:0.5
+```
+- JSON: `[{"id": "E001", "gender": "M"}, ...]`
+- CSV: header `id,gender` required
+
+Export schedule for use as previous month:
+```bash
+python store_optimizer_demo.py --roster_file roster.json --output_schedule schedule_jan.json --year 2025 --month 1 --direct_base_by_day 1 --direct_deterministic --params max_time_in_seconds:0.5
+```
+
+Condition next month on previous schedule (soft stability + sequence continuity):
+```bash
+python store_optimizer_demo.py --roster_file roster.json --previous_schedule schedule_jan.json --year 2025 --month 2 --direct_base_by_day 1 --direct_deterministic --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --previous_schedule schedule_jan.json --stability_penalty 2 --params max_time_in_seconds:0.5
+```
+- `--previous_schedule`: JSON with `employee_ids`, `schedule`, `shifts`, `year`, `month`. Shifts must match current store.
+- `--stability_penalty`: weight for deviating from previous (default 0 = disabled). Use e.g. 1 or 2 to enable.
 
 ### Real data: roster, demand, work/rest constraints
 Specify roster (e.g. 7 men, 8 women), per-day demand, max work days, min rest days:
@@ -55,6 +78,18 @@ python store_optimizer_demo.py --demand estimation --rule formula --base_employe
 python store_optimizer_demo.py --demand estimation --customers_per_employee_M 25 --customers_per_employee_A 35 --min_employees_estimation 2 --params max_time_in_seconds:0.5
 ```
 
+### Dynamic shifts (variable shifts per store)
+Use `--store_shifts` to set different shift counts per store (e.g. 3, 6, or 8 shifts). Omit for default M/A (2 shifts).
+```bash
+python store_optimizer_demo.py --store_ids store_A --store_shifts "store_A:6" --demand direct --direct_base_by_day "5,4,3,4,5,4;6,5,4,5,6,5;5,4,3,4,5,4;5,4,3,4,5,4;6,5,4,5,6,5;4,3,3,3,4,3;3,3,3,3,4,3" --direct_deterministic --excess_penalty 1 --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --store_ids store_A,store_B --store_shifts "store_A:6,store_B:3" --demand direct --direct_base_by_day 4 --direct_deterministic --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --store_ids store_A --store_shifts "store_A:6" --demand estimation --rule ratio --customers_per_employee 30 --params max_time_in_seconds:0.5
+```
+- `--direct_base_by_day`: 7 groups (Mon–Sun) separated by `;`; each group has N comma-sep values (S1..Sn). Single int `4` = same for all.
+- `--excess_penalty`: single int or comma-sep per shift (when `--store_shifts`).
+- `--customers_per_employee`: single float or comma-sep per shift (when `--store_shifts`).
+- `--sequence_constraints`, `--weekly_sum_constraints`: use shift names S1, S2, …, O.
+
 ### Direct demand
 Single int = all days in group. Comma-sep = per-day: `--direct_base_M_weekday 5,6,5,5,6` = Mon–Fri, `--direct_base_M_weekend 4,3` = Sat,Sun.
 ```bash
@@ -67,7 +102,7 @@ python store_optimizer_demo.py --store_ids A,B --store_profiles A:weekend_heavy,
 ```
 
 ### Optimizer constraints
-Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--max_weekend_work_shifts_women None`. Use `0` to disable.
+Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`. Use `0` to disable.
 ```bash
 python store_optimizer_demo.py --excess_penalty_M 2 --excess_penalty_A 2 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_shifts_per_week 5 --params max_time_in_seconds:0.5
@@ -78,8 +113,11 @@ python store_optimizer_demo.py --sequence_constraints M:1,1,0,3,4,5 --params max
 python store_optimizer_demo.py --weekly_sum_constraints O:1,2,7,2,3,4 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_weekend_work_shifts_women 2 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --min_sunday_off_per_month 1 --min_sunday_off_women 2 --params max_time_in_seconds:0.5
+# When min_sunday_off_women > 0 and women_sunday_off_alternate: validation runs automatically after each schedule. Look for "Validation: women alternate Sundays OK" or "CONSTRAINT VIOLATIONS".
 python store_optimizer_demo.py --no_women_sunday_off_alternate --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --spread_sunday_shifts_penalty 10 --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --spread_shifts_penalty 5 --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --min_work_days_per_month 15 --min_work_days_penalty 5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --target_min_women_ratio 0.35 --target_max_women_ratio 0.65 --params max_time_in_seconds:0.5
 ```
 

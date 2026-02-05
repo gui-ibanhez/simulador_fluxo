@@ -16,6 +16,7 @@
 
 import calendar
 import datetime as dt
+import json
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from absl import app
@@ -183,17 +184,33 @@ def build_dates(year: int, month: int) -> list[dt.date]:
     return [dt.date(year, month, day) for day in range(1, num_days + 1)]
 
 
-def _week_sunday_saturday(dates: list[dt.date]) -> Dict[int, list[int]]:
-    """Group day indices by calendar week (Sunday–Saturday).
-    Returns {week_key: [day_indices]}. week_key is days since epoch of the week's Sunday.
+def _weeks_with_previous(
+    dates: list[dt.date],
+    previous_dates: Optional[list[dt.date]] = None,
+) -> List[Tuple[list[int], list[int]]]:
+    """Calendar weeks (Mon–Sun) with optional previous-month days.
+    Returns list of (current_day_indices, prev_day_indices) per week.
+    Only includes weeks that have at least one current-month day.
+    prev_day_indices are indices into previous_dates for days in same week.
     """
-    groups: Dict[int, list[int]] = {}
+    week_to_current: Dict[int, list[int]] = {}
+    week_to_prev: Dict[int, list[int]] = {}
     for d, date in enumerate(dates):
-        days_since_sunday = (date.weekday() + 1) % 7
-        sunday = date - dt.timedelta(days=days_since_sunday)
-        key = sunday.toordinal()
-        groups.setdefault(key, []).append(d)
-    return groups
+        monday = date - dt.timedelta(days=date.weekday())
+        key = monday.toordinal()
+        week_to_current.setdefault(key, []).append(d)
+    if previous_dates:
+        for d, date in enumerate(previous_dates):
+            monday = date - dt.timedelta(days=date.weekday())
+            key = monday.toordinal()
+            if key in week_to_current:
+                week_to_prev.setdefault(key, []).append(d)
+    result = []
+    for key in sorted(week_to_current.keys()):
+        current = sorted(week_to_current[key])
+        prev = sorted(week_to_prev.get(key, []))
+        result.append((current, prev))
+    return result
 
 
 def default_demand(
@@ -227,6 +244,69 @@ def validate_demand(
             )
 
 
+def schedule_to_dict(
+    solver: cp_model.CpSolver,
+    work: Dict[Tuple[int, int, int], cp_model.BoolVarT],
+    num_employees: int,
+    shifts: list[str],
+    dates: list[dt.date],
+    roster: Optional[list[dict[str, Any]]] = None,
+    store_id: Optional[str] = None,
+) -> dict:
+    """Export schedule to JSON-serializable dict."""
+    employee_ids = [
+        (roster[e].get("id", f"emp_{e}") if roster and e < len(roster) else f"emp_{e}")
+        for e in range(num_employees)
+    ]
+    schedule = []
+    for e in range(num_employees):
+        row = []
+        for d in range(len(dates)):
+            for s in range(len(shifts)):
+                if solver.boolean_value(work[e, s, d]):
+                    row.append(shifts[s])
+                    break
+        schedule.append(row)
+    out = {
+        "employee_ids": employee_ids,
+        "schedule": schedule,
+        "shifts": shifts,
+        "year": dates[0].year,
+        "month": dates[0].month,
+    }
+    if store_id:
+        out["store_id"] = store_id
+    return out
+
+
+def load_previous_schedule(
+    path: str,
+    store_id: str,
+    current_shifts: list[str],
+) -> tuple[Dict[str, list[str]], list[dt.date]]:
+    """Load previous schedule from JSON. Returns (dict[employee_id, shifts_per_day], dates).
+
+    Validates that previous shifts match current_shifts.
+    For multi-store files, uses data["stores"][store_id]. For single-store, uses top-level.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    store_data = data.get("stores", {}).get(store_id, data)
+    if "shifts" not in store_data:
+        raise ValueError("Previous schedule JSON must contain 'shifts' field")
+    prev_shifts = store_data["shifts"]
+    if prev_shifts != current_shifts:
+        raise ValueError(
+            f"Previous schedule shifts {prev_shifts} do not match current {current_shifts}"
+        )
+    prev = {
+        eid: store_data["schedule"][i]
+        for i, eid in enumerate(store_data["employee_ids"])
+    }
+    dates = build_dates(store_data["year"], store_data["month"])
+    return prev, dates
+
+
 def build_model(
     num_employees: int,
     dates: list[dt.date],
@@ -249,12 +329,22 @@ def build_model(
     work_shift_indices = [i for i, name in enumerate(shifts) if name != "O"]
 
     # Normalize roster: pad with default if None or shorter than num_employees.
+    debug_sunday = bool(constraints.get("debug_sunday_constraints", False))
     if roster is None:
-        roster = [{"gender": "M"} for _ in range(num_employees)]
+        roster = [{"id": f"emp_{e}", "gender": "M"} for e in range(num_employees)]
+        if debug_sunday:
+            print("[DEBUG:sunday] build_model: roster was None, all default to M (no women)")
     else:
         roster = list(roster)
+        padded = 0
+        for e in range(len(roster)):
+            if roster[e].get("id") is None or roster[e].get("id") == "":
+                roster[e] = {**roster[e], "id": f"emp_{e}"}
         while len(roster) < num_employees:
-            roster.append({"gender": "M"})
+            roster.append({"id": f"emp_{len(roster)}", "gender": "M"})
+            padded += 1
+        if debug_sunday and padded:
+            print(f"[DEBUG:sunday] build_model: roster padded with {padded} default M")
 
     model = cp_model.CpModel()
     work = {}
@@ -335,59 +425,120 @@ def build_model(
             obj_bool_vars.extend(variables)
             obj_bool_coeffs.extend(coeffs)
 
-    # Optional weekly sum constraints (7-day blocks from day 0).
+    # Optional weekly sum constraints. Uses calendar weeks (Mon–Sun); completes partial
+    # weeks with previous month when previous_schedule is provided.
+    prev_sched = constraints.get("previous_schedule")
+    prev_dates_list = constraints.get("previous_dates")
     for ct in constraints.get("weekly_sum_constraints", []):
         shift_ref, hard_min, soft_min, min_cost, soft_max, hard_max, max_cost = ct
         s_index = shift_index[shift_ref] if isinstance(shift_ref, str) else shift_ref
-        for e in range(num_employees):
-            for w in range((num_days + 6) // 7):
-                week_days = [d for d in range(w * 7, min((w + 1) * 7, num_days))]
-                works = [work[e, s_index, d] for d in week_days]
+        shift_name = shifts[s_index] if s_index < len(shifts) else str(shift_ref)
+        for current_days, prev_days in _weeks_with_previous(dates, prev_dates_list):
+            for e in range(num_employees):
+                prev_count = 0
+                if prev_sched and prev_dates_list and prev_days:
+                    emp_id = roster[e].get("id", f"emp_{e}")
+                    if emp_id in prev_sched:
+                        prev_shifts = prev_sched[emp_id]
+                        for pd in prev_days:
+                            if pd < len(prev_shifts) and prev_shifts[pd] == shift_name:
+                                prev_count += 1
+                h_min = max(0, hard_min - prev_count)
+                h_max = min(len(current_days), hard_max - prev_count)
+                if h_min > h_max:
+                    continue
+                s_min = max(h_min, soft_min - prev_count)
+                s_max = min(h_max, soft_max - prev_count)
+                works = [work[e, s_index, d] for d in current_days]
+                if not works:
+                    continue
                 variables, coeffs = add_soft_sum_constraint(
                     model,
                     works,
-                    hard_min,
-                    soft_min,
+                    h_min,
+                    s_min,
                     min_cost,
-                    soft_max,
-                    hard_max,
+                    s_max,
+                    h_max,
                     max_cost,
-                    f"weekly(employee {e}, {shifts[s_index]}, week {w})",
+                    f"weekly(employee {e}, {shift_name})",
                 )
                 obj_int_vars.extend(variables)
                 obj_int_coeffs.extend(coeffs)
 
-    # Optional max shifts per week (working shifts only). None or 0 = disabled.
+    # Optional max shifts per week (working shifts only). Uses calendar weeks (Mon–Sun);
+    # completes partial weeks with previous month when previous_schedule is provided.
     max_shifts_per_week = constraints.get("max_shifts_per_week")
     if max_shifts_per_week is not None and max_shifts_per_week > 0:
-        for e in range(num_employees):
-            for w in range((num_days + 6) // 7):
-                week_days = [d for d in range(w * 7, min((w + 1) * 7, num_days))]
-                model.add(
-                    sum(
-                        work[e, s, d]
-                        for s in work_shift_indices
-                        for d in week_days
-                    )
-                    <= max_shifts_per_week
-                )
-
-    # Optional min days off per week (Sunday–Saturday). Only applied when set.
-    min_days_off = constraints.get("min_days_off_per_week")
-    if off_index is not None and min_days_off is not None and min_days_off > 0:
-        week_groups = _week_sunday_saturday(dates)
-        for e in range(num_employees):
-            for week_days in week_groups.values():
-                if len(week_days) > 0:
+        prev_sched = constraints.get("previous_schedule")
+        prev_dates_list = constraints.get("previous_dates")
+        for current_days, prev_days in _weeks_with_previous(dates, prev_dates_list):
+            for e in range(num_employees):
+                prev_work = 0
+                if prev_sched and prev_dates_list and prev_days:
+                    emp_id = roster[e].get("id", f"emp_{e}")
+                    if emp_id in prev_sched:
+                        prev_shifts = prev_sched[emp_id]
+                        for pd in prev_days:
+                            if pd < len(prev_shifts) and prev_shifts[pd] != "O":
+                                prev_work += 1
+                limit = max_shifts_per_week - prev_work
+                if limit < 0:
+                    continue
+                if current_days:
                     model.add(
-                        sum(work[e, off_index, d] for d in week_days)
-                        >= min_days_off
+                        sum(
+                            work[e, s, d]
+                            for s in work_shift_indices
+                            for d in current_days
+                        )
+                        <= limit
+                    )
+
+    # Optional min days off per week (Monday–Sunday). Uses calendar weeks; completes
+    # partial weeks with previous month when previous_schedule is provided.
+    min_days_off = constraints.get("min_days_off_per_week")
+    previous_schedule = constraints.get("previous_schedule")
+    previous_dates = constraints.get("previous_dates")
+    if off_index is not None and min_days_off is not None and min_days_off > 0:
+        for current_days, prev_days in _weeks_with_previous(dates, previous_dates):
+            for e in range(num_employees):
+                prev_off = 0
+                if previous_schedule and previous_dates and prev_days:
+                    emp_id = roster[e].get("id", f"emp_{e}")
+                    if emp_id in previous_schedule:
+                        prev_shifts = previous_schedule[emp_id]
+                        for pd in prev_days:
+                            if pd < len(prev_shifts) and prev_shifts[pd] == "O":
+                                prev_off += 1
+                required = min_days_off - prev_off
+                if required <= 0:
+                    continue
+                if current_days:
+                    model.add(
+                        sum(work[e, off_index, d] for d in current_days)
+                        >= required
                     )
 
     # Optional max consecutive work days. None or 0 = disabled.
+    # When previous_schedule is provided, extend to consider last K days of previous month.
     max_consecutive = constraints.get("max_consecutive_work_days")
+    previous_schedule = constraints.get("previous_schedule")
+    previous_dates = constraints.get("previous_dates")
     if max_consecutive is not None and max_consecutive > 0 and off_index is not None:
         for e in range(num_employees):
+            emp_id = roster[e].get("id", f"emp_{e}")
+            prev_working = []
+            if (
+                previous_schedule
+                and previous_dates
+                and emp_id in previous_schedule
+            ):
+                prev_shifts = previous_schedule[emp_id]
+                K = min(max_consecutive, len(prev_shifts))
+                for i in range(len(prev_shifts) - K, len(prev_shifts)):
+                    shift_name = prev_shifts[i]
+                    prev_working.append(1 if shift_name != "O" else 0)
             working = []
             for d in range(num_days):
                 w_var = model.new_bool_var(f"working{e}_{d}")
@@ -397,6 +548,10 @@ def build_model(
                 model.add_bool_or(
                     [~working[i] for i in range(start, start + max_consecutive + 1)]
                 )
+            # Sequence continuity: if last max_consecutive days of prev were all working, day 0 must be off
+            if prev_working and len(prev_working) >= max_consecutive:
+                if all(prev_working[-max_consecutive:]):
+                    model.add(work[e, off_index, 0] == 1)
 
     # Optional max weekend work shifts for women.
     max_weekend_work_shifts_women = constraints.get("max_weekend_work_shifts_women")
@@ -416,33 +571,70 @@ def build_model(
     # Sunday-specific constraints.
     sunday_indices = [d for d in range(num_days) if dates[d].weekday() == 6]
     min_sunday_off = int(constraints.get("min_sunday_off_per_month", 0))
+    min_sunday_off_women = int(constraints.get("min_sunday_off_women", 0))
+    women_alternate = constraints.get("women_sunday_off_alternate", True)
+    if debug_sunday and sunday_indices:
+        sun_dates = [str(dates[d]) for d in sunday_indices]
+        print(
+            f"[DEBUG:sunday] build_model: off_index={off_index}, sunday_indices={sunday_indices} "
+            f"-> {sun_dates}"
+        )
+        print(
+            f"[DEBUG:sunday] build_model: min_sunday_off={min_sunday_off}, "
+            f"min_sunday_off_women={min_sunday_off_women}, women_alternate={women_alternate}"
+        )
     if off_index is not None and min_sunday_off > 0 and sunday_indices:
         for e in range(num_employees):
             model.add(
                 sum(work[e, off_index, d] for d in sunday_indices) >= min_sunday_off
             )
 
-    min_sunday_off_women = int(constraints.get("min_sunday_off_women", 0))
-    women_alternate = constraints.get("women_sunday_off_alternate", True)
-    if (
-        off_index is not None
-        and min_sunday_off_women > 0
-        and sunday_indices
-        and len(sunday_indices) >= 2
-    ):
+    def _is_woman(e: int) -> bool:
+        return str(roster[e].get("gender", "M")).upper() == "F"
+
+    # Min Sundays off for women (when enabled)
+    if off_index is not None and min_sunday_off_women > 0 and sunday_indices:
         for e in range(num_employees):
-            if roster[e].get("gender") == "F":
+            if _is_woman(e):
                 model.add(
                     sum(work[e, off_index, d] for d in sunday_indices)
                     >= min_sunday_off_women
                 )
-                if women_alternate:
-                    for i in range(len(sunday_indices) - 1):
-                        model.add(
-                            work[e, off_index, sunday_indices[i]]
-                            + work[e, off_index, sunday_indices[i + 1]]
-                            <= 1
-                        )
+    # Legal rule: women cannot be off on two consecutive Sundays (always enforced when enabled)
+    women_added = []
+    if (
+        off_index is not None
+        and women_alternate
+        and sunday_indices
+        and len(sunday_indices) >= 2
+    ):
+        for e in range(num_employees):
+            if _is_woman(e):
+                women_added.append((e, roster[e].get("id", f"emp_{e}")))
+                for i in range(len(sunday_indices) - 1):
+                    model.add(
+                        work[e, off_index, sunday_indices[i]]
+                        + work[e, off_index, sunday_indices[i + 1]]
+                        >= 1
+
+                    )
+    if debug_sunday:
+        if women_added:
+            emp_list = ", ".join(f"{emp_id} (idx {e})" for e, emp_id in women_added[:5])
+            if len(women_added) > 5:
+                emp_list += f", ... ({len(women_added)} women total)"
+            print(f"[DEBUG:sunday] women_alternate: added constraint for {emp_list}")
+        else:
+            reasons = []
+            if off_index is None:
+                reasons.append("off_index is None")
+            if not women_alternate:
+                reasons.append("women_alternate is False")
+            if not sunday_indices or len(sunday_indices) < 2:
+                reasons.append(f"len(sunday_indices)={len(sunday_indices)} < 2")
+            if not any(_is_woman(e) for e in range(num_employees)):
+                reasons.append("no women in roster")
+            print(f"[DEBUG:sunday] women_alternate: SKIPPED - {', '.join(reasons)}")
 
     # Spread Sunday shifts evenly (soft).
     spread_penalty = int(constraints.get("spread_sunday_shifts_penalty", 0))
@@ -478,6 +670,85 @@ def build_model(
         obj_int_vars.append(spread_var)
         obj_int_coeffs.append(spread_penalty)
 
+    # Spread total shifts evenly across roster (soft).
+    spread_shifts_penalty = int(constraints.get("spread_shifts_penalty", 0))
+    if spread_shifts_penalty > 0:
+        total_work = []
+        max_work_per_emp = num_days  # at most one work shift per day
+        for e in range(num_employees):
+            tw = model.new_int_var(0, max_work_per_emp, f"total_work_{e}")
+            model.add(
+                tw
+                == sum(
+                    work[e, s, d]
+                    for s in work_shift_indices
+                    for d in range(num_days)
+                )
+            )
+            total_work.append(tw)
+        max_total = model.new_int_var(0, max_work_per_emp, "max_total_work")
+        min_total = model.new_int_var(0, max_work_per_emp, "min_total_work")
+        model.add_max_equality(max_total, total_work)
+        model.add_min_equality(min_total, total_work)
+        spread_total_var = model.new_int_var(
+            0, max_work_per_emp, "spread_total_shifts"
+        )
+        model.add(spread_total_var == max_total - min_total)
+        obj_int_vars.append(spread_total_var)
+        obj_int_coeffs.append(spread_shifts_penalty)
+
+    # Penalty when employee works less than n days per month (soft).
+    min_work_days = int(constraints.get("min_work_days_per_month", 0))
+    min_work_days_penalty = int(constraints.get("min_work_days_penalty", 0))
+    if min_work_days > 0 and min_work_days_penalty > 0:
+        for e in range(num_employees):
+            total_work_e = model.new_int_var(0, num_days, f"total_work_for_min_{e}")
+            model.add(
+                total_work_e
+                == sum(
+                    work[e, s, d]
+                    for s in work_shift_indices
+                    for d in range(num_days)
+                )
+            )
+            shortage = model.new_int_var(
+                0, min(min_work_days, num_days), f"min_work_shortage_{e}"
+            )
+            model.add(shortage >= min_work_days - total_work_e)
+            obj_int_vars.append(shortage)
+            obj_int_coeffs.append(min_work_days_penalty)
+
+    # Soft stability: prefer same shift as previous month (by weekday)
+    stability_penalty = int(constraints.get("stability_penalty", 0))
+    if (
+        stability_penalty > 0
+        and previous_schedule
+        and previous_dates
+    ):
+        # Build weekday -> last day index in previous month for each weekday
+        last_weekday_in_prev = {}
+        for d, date in enumerate(previous_dates):
+            w = date.weekday()
+            last_weekday_in_prev[w] = d
+        for e in range(num_employees):
+            emp_id = roster[e].get("id", f"emp_{e}")
+            if emp_id not in previous_schedule:
+                continue
+            prev_shifts = previous_schedule[emp_id]
+            for d in range(num_days):
+                w = dates[d].weekday()
+                if w not in last_weekday_in_prev:
+                    continue
+                prev_d = last_weekday_in_prev[w]
+                if prev_d >= len(prev_shifts):
+                    continue
+                preferred_shift = prev_shifts[prev_d]
+                if preferred_shift not in shift_index:
+                    continue
+                s_preferred = shift_index[preferred_shift]
+                obj_bool_vars.append(work[e, s_preferred, d])
+                obj_bool_coeffs.append(-stability_penalty)
+
     # Objective
     if obj_bool_vars or obj_int_vars:
         model.minimize(
@@ -501,6 +772,88 @@ def build_model(
         obj_int_vars,
         obj_int_coeffs,
     )
+
+
+def validate_women_sunday_alternate(
+    solver: cp_model.CpSolver,
+    work: Dict[Tuple[int, int, int], cp_model.BoolVarT],
+    num_employees: int,
+    dates: list[dt.date],
+    shifts: list[str],
+    roster: Optional[list[dict[str, Any]]] = None,
+    debug: bool = False,
+) -> list[str]:
+    """Check that no woman is off on two consecutive Sundays.
+
+    Uses the same logic as format_schedule: derive shift per (e,d) by finding
+    which s has work[e,s,d]=1. Returns list of violation messages, empty if OK.
+    """
+    num_days = len(dates)
+    num_shifts = len(shifts)
+    sunday_indices = [d for d in range(num_days) if dates[d].weekday() == 6]
+    if len(sunday_indices) < 2:
+        return []
+    roster_len = len(roster) if roster else 0
+    women_count = (
+        sum(
+            1
+            for e in range(min(num_employees, roster_len))
+            if roster and str(roster[e].get("gender", "M")).upper() == "F"
+        )
+        if roster
+        else 0
+    )
+    if debug:
+        print(
+            f"[DEBUG:sunday] validate: roster_len={roster_len}, num_employees={num_employees}, "
+            f"women={women_count}"
+        )
+    violations = []
+    for e in range(num_employees):
+        # Only check women; need roster to identify gender
+        if roster is None or e >= len(roster):
+            continue
+        gender = str(roster[e].get("gender", "M")).upper()
+        if gender != "F":
+            continue
+        # Derive shift per day (same logic as format_schedule)
+        shift_per_day = []
+        for d in range(num_days):
+            assigned = None
+            for s in range(num_shifts):
+                key = (e, s, d)
+                if key not in work:
+                    continue
+                if solver.boolean_value(work[key]):
+                    assigned = shifts[s] if s < len(shifts) else "?"
+                    break
+            shift_per_day.append(assigned)
+        sunday_shifts = [
+            shift_per_day[d] if d < len(shift_per_day) else "?"
+            for d in sunday_indices
+        ]
+        if debug:
+            emp_id = roster[e].get("id", f"emp_{e}")
+            print(
+                f"[DEBUG:sunday] validate: emp {emp_id} (idx {e}): Sundays {sunday_indices} -> {sunday_shifts}"
+            )
+        # Check consecutive Sundays
+        for i in range(len(sunday_indices) - 1):
+            d1, d2 = sunday_indices[i], sunday_indices[i + 1]
+            s1 = shift_per_day[d1] if d1 < len(shift_per_day) else None
+            s2 = shift_per_day[d2] if d2 < len(shift_per_day) else None
+            if s1 != "O" and s2 != "O":
+                emp_id = roster[e].get("id", f"emp_{e}")
+                violations.append(
+                    f"Employee {emp_id} (F): worked consecutive Sundays "
+                    f"{dates[d1]} and {dates[d2]}"
+                )
+                if debug:
+                    print(
+                        f"[DEBUG:sunday] VIOLATION: emp {emp_id} (idx {e}): off on "
+                        f"{dates[d1]} and {dates[d2]}"
+                    )
+    return violations
 
 
 def compute_understaff_summary(
@@ -547,6 +900,29 @@ def recommend_hiring_gender_split(
     h_f = max(0, min(num_to_hire, h_f))
     h_m = num_to_hire - h_f
     return (h_m, h_f)
+
+
+def recommend_hire_one_gender(
+    roster: list[dict[str, Any]],
+    target_min_women_ratio: float = 0.4,
+    target_max_women_ratio: float = 0.6,
+) -> str:
+    """Recommend gender for the next single hire to balance ratio.
+
+    Returns 'M' or 'F'. Hire a woman if too few women, a man if too few men.
+    """
+    n_m = sum(1 for e in roster if e.get("gender") == "M")
+    n_f = sum(1 for e in roster if e.get("gender") == "F")
+    total = n_m + n_f
+    if total == 0:
+        return "M"
+    women_ratio = n_f / total
+    if women_ratio < target_min_women_ratio:
+        return "F"  # too few women
+    if women_ratio > target_max_women_ratio:
+        return "M"  # too few men
+    target = (target_min_women_ratio + target_max_women_ratio) / 2
+    return "F" if women_ratio < target else "M"
 
 
 # Width of the "employee N: " prefix so day columns align across rows.
@@ -623,8 +999,6 @@ def print_solution(
             penalty = obj_bool_coeffs[i]
             if penalty > 0:
                 print(f"  {rule}: violated, penalty={penalty}")
-            else:
-                print(f"  {rule}: fulfilled, gain={-penalty}")
     for i, var in enumerate(obj_int_vars):
         if solver.value(var) > 0:
             rule = var.name or f"penalty_{i}"
@@ -645,6 +1019,17 @@ def solve_once(
     write_proto: bool,
     roster: Optional[list[dict[str, Any]]] = None,
 ) -> Dict[str, object]:
+    if constraints.get("debug_sunday_constraints", False):
+        roster_len = len(roster) if roster is not None else 0
+        women = (
+            sum(1 for e in roster if str(e.get("gender", "M")).upper() == "F")
+            if roster
+            else 0
+        )
+        print(
+            f"[DEBUG:sunday] solve_once: num_employees={num_employees}, roster_len={roster_len}, "
+            f"women={women}, roster_is_None={roster is None}"
+        )
     (
         model,
         work,

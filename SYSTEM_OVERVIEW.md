@@ -80,7 +80,7 @@ uv run python store_optimizer_demo.py --help
 **Inputs**
 
 - **Time horizon**: one month (year + month); we get a list of days \(d = 0, 1, \ldots, D-1\).
-- **Shifts**: for example **O** (Off), **M** (Morning), **A** (Afternoon). Work shifts are M and A; O means the person does not work that day.
+- **Shifts**: for example **O** (Off), **M** (Morning), **A** (Afternoon). Work shifts are M and A; O means the person does not work that day. With `--store_shifts`, each store can have a different number of work shifts (e.g. S1, S2, …, S6 for 6 shifts).
 - **Demand**: for each day \(d\) and each work shift \(s\) (e.g. M, A), a number \(r_{d,s}\) = *required* number of employees that must be assigned to that shift on that day.
 - **Roster bounds**: current roster size \(N_{\text{current}}\), and a range \([N_{\min}, N_{\max}]\) of roster sizes we are allowed to try (e.g. to recommend hiring or reducing).
 
@@ -193,24 +193,23 @@ The scheduler receives demand \(r_{d,s}\) for each day \(d\) and work shift \(s\
   \]
   and the objective includes \(w_{\text{M}} \cdot \text{excess}_{d,\text{M}} + w_{\text{A}} \cdot \text{excess}_{d,\text{A}}\) (summed over days). So the solver tries to meet demand exactly when it can, and otherwise minimizes overstaffing.
 
-- Other soft constraints (e.g. sequence or weekly sum preferences) can add more penalty terms. **Total objective** = sum of all these penalties. We **minimize** it.
+- Other soft constraints (e.g. sequence or weekly sum preferences, spread of Sunday shifts, spread of total shifts across roster) can add more penalty terms. **Total objective** = sum of all these penalties. We **minimize** it.
 
 So: **demand \(r_{d,s}\) is fixed**; the model only chooses assignments \(x_{e,s,d}\) (and thus \(a_{d,s}\)) so that cover is satisfied and the objective is as small as possible.
 
-#### 4.4 How the “best” roster size is chosen
+#### 4.4 How the “best” roster size is chosen (iterative hire)
 
-We do *not* fix \(N\) once. We **try** every roster size \(N \in \{N_{\min},\, N_{\min}+1,\, \ldots,\, N_{\max}\}\) (and in the demo we never try \(N\) smaller than the minimum needed to satisfy \(\max_d \sum_s r_{d,s}\) on the peak day).
+When the current roster is **understaffed** (no feasible schedule), the demo uses an **iterative hire** approach:
 
-For each \(N\):
+1. Check the current gender ratio (men vs women).
+2. Hire **one** person: a woman if there are too few women, a man if there are too few men (relative to target ratio).
+3. Re-run the optimization with the new roster.
+4. If still infeasible and roster size \(< N_{\max}\), repeat from step 1.
+5. Stop when a feasible schedule is found or \(N_{\max}\) is reached.
 
-1. Build the model with \(N\) employees and the same demand \(r_{d,s}\).
-2. Solve. If there is no feasible solution (e.g. demand too high for \(N\)), skip this \(N\).
-3. If feasible, we get an objective value \(O(N)\).
+This ensures each hire is chosen to maintain gender balance, rather than hiring all at once.
 
-**Selection**:
-
-- Among all feasible \(N\), choose \(N^*\) that **minimizes** \(O(N)\).
-- If two roster sizes have the same objective, choose the one **closest to** \(N_{\text{current}}\) (prefer fewer changes).
+When the current roster is **feasible**, we use it as-is (no hire search).
 
 So the “quantity of employees per shift” is **never** decided by the scheduler: it is entirely given by the demand \(r_{d,s}\). The scheduler only decides *how many employees in total* to have (\(N^*\)) and *who works when*, so that every \(r_{d,s}\) is met and the total penalty is minimized.
 
@@ -220,13 +219,15 @@ Each constraint can make the optimization infeasible. Below: what causes infeasi
 
 | Constraint | Infeasibility condition | Remedy |
 |------------|-------------------------|--------|
-| **Cover** | For some day \(d\) and shift \(s\), demand \(r_{d,s}\) exceeds roster size \(N\). Example: day requires 6 morning + 5 afternoon = 11 people, but \(N = 10\). | Increase roster (hire) or reduce demand. Use relaxed model (Schedule B) for a best-effort schedule. |
+| **Cover** | For some day \(d\) and shift \(s\), demand \(r_{d,s}\) exceeds roster size \(N\). Example: day requires 6 morning + 5 afternoon = 11 people, but \(N = 10\). | Increase roster (hire) or reduce demand. Solution 1 uses relaxed model for a best-effort schedule with current roster. |
 | **Max shifts per week** | Total demand for work shifts in a week exceeds \(N \times \text{max\_shifts\_per\_week}\). Example: 8 people × 5 max = 40 shifts available, but demand needs 45. | Raise `max_shifts_per_week`, hire more people, or reduce demand. |
-| **Min days off per week** | Each employee needs at least \(k\) days off per week (Sunday–Saturday). Default \(k=1\); use 0 to disable. Total work capacity is limited. Example: 7-day week, min 2 off → max 5 work days each; 10 people → 50 work shifts max, but demand needs 55. | Lower `min_days_off_per_week`, hire more, or reduce demand. |
+| **Min days off per week** | Each employee needs at least \(k\) days off per week (Monday–Sunday). Partial weeks at month boundaries are completed with the previous month when `--previous_schedule` is used. Default \(k=1\); use 0 to disable. | Lower `min_days_off_per_week`, hire more, or reduce demand. |
 | **Max consecutive work days** | Demand pattern forces someone to work more than the limit in a row. Example: demand requires the same 5 people every day for 10 days, but max consecutive = 5. | Raise `max_consecutive_work_days`, hire more (spread load), or reduce demand. |
 | **Women's weekend cap** | Weekend demand exceeds total weekend shifts women can provide plus men's capacity. Example: 2 women × 4 max = 8 weekend shifts; need 20 total; 12 must come from men; if only 3 men, infeasible. | Hire more men, raise `max_weekend_work_shifts_women`, or reduce weekend demand. |
 | **Sequence constraints** (hard part) | Hard min/max on consecutive work days cannot be satisfied. Example: demand forces 6 consecutive M shifts but hard_max = 5. | Relax hard bounds or adjust demand. |
 | **Weekly sum constraints** (hard part) | Hard min/max on shifts per week per employee conflicts with cover. Example: demand forces 5 M shifts in a week but hard_max = 4. | Relax hard bounds, hire more, or reduce demand. |
+
+**Legal rule (women alternate Sundays)**: When `women_sunday_off_alternate` is enabled (default), no woman may be off on two consecutive Sundays. This is enforced as a hard constraint in the model. After solving, the schedule is validated; if any violation is found, the run exits with error and no schedule is output.
 
 ---
 
@@ -243,7 +244,7 @@ Each constraint can make the optimization infeasible. Below: what causes infeasi
    For each candidate roster size \(N\), solve the CP model (cover + optional constraints, minimize objective). Keep the best \(N^*\) and the corresponding schedule.
 
 4. **Output**  
-   Schedule (who works which shift each day) and recommendation (e.g. “hire \(N^* - N_{\text{current}}\)” or “reduce by \(N_{\text{current}} - N^*\)”).
+   Each run prints two solutions: Solution 1 (current roster) and Solution 2 (optimized). Schedule (who works which shift each day) and recommendation (e.g. “hire \(N^* - N_{\text{current}}\)” or “reduce by \(N_{\text{current}} - N^*\)”).
 
 ---
 
