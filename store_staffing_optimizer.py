@@ -179,9 +179,56 @@ def add_soft_sum_constraint(
     return cost_variables, cost_coefficients
 
 
+def build_roster_composition(men: int, women: int) -> list[dict[str, Any]]:
+    roster = []
+    for i in range(men):
+        roster.append({"id": f"man_{i}", "gender": "M"})
+    for i in range(women):
+        roster.append({"id": f"woman_{i}", "gender": "F"})
+    return roster
+
+
+def status_name(status: int) -> str:
+    """Return status name from cp_model status int."""
+    return cp_model.CpSolver().status_name(status)
+
+
 def build_dates(year: int, month: int) -> list[dt.date]:
     _, num_days = calendar.monthrange(year, month)
     return [dt.date(year, month, day) for day in range(1, num_days + 1)]
+
+
+def build_complete_week_dates(year: int, month: int) -> tuple[list[dt.date], int, int]:
+    """Build dates for complete calendar weeks covering the target month.
+
+    Returns:
+        - dates: list of dates from Monday of first week to Sunday of last week
+        - primary_start: index of first day of target month in dates
+        - primary_end: index after last day of target month (exclusive)
+    """
+    # First day of month
+    first_day = dt.date(year, month, 1)
+    # Last day of month
+    _, num_days = calendar.monthrange(year, month)
+    last_day = dt.date(year, month, num_days)
+
+    # Monday of week containing first day
+    start = first_day - dt.timedelta(days=first_day.weekday())
+    # Sunday of week containing last day
+    end = last_day + dt.timedelta(days=6 - last_day.weekday())
+
+    # Build date list
+    dates = []
+    current = start
+    while current <= end:
+        dates.append(current)
+        current += dt.timedelta(days=1)
+
+    # Calculate primary range indices
+    primary_start = (first_day - start).days
+    primary_end = primary_start + num_days
+
+    return dates, primary_start, primary_end
 
 
 def _weeks_with_previous(
@@ -252,6 +299,8 @@ def schedule_to_dict(
     dates: list[dt.date],
     roster: Optional[list[dict[str, Any]]] = None,
     store_id: Optional[str] = None,
+    primary_start: Optional[int] = None,
+    primary_end: Optional[int] = None,
 ) -> dict:
     """Export schedule to JSON-serializable dict."""
     employee_ids = [
@@ -271,9 +320,16 @@ def schedule_to_dict(
         "employee_ids": employee_ids,
         "schedule": schedule,
         "shifts": shifts,
-        "year": dates[0].year,
-        "month": dates[0].month,
+        "year": dates[0].year if primary_start is None else dates[primary_start].year,
+        "month": dates[0].month if primary_start is None else dates[primary_start].month,
     }
+    if primary_start is not None:
+        out["extended_dates"] = {
+            "start": dates[0].isoformat(),
+            "end": dates[-1].isoformat(),
+            "primary_start_index": primary_start,
+            "primary_end_index": primary_end,
+        }
     if store_id:
         out["store_id"] = store_id
     return out
@@ -540,6 +596,68 @@ def build_model(
                         >= required
                     )
 
+    # Optional: require min_days_off to be consecutive within rolling 7-day windows.
+    # Uses an automaton to ensure at least min_days_off consecutive off days exist
+    # in every 7-day window. Only applies when min_days_off >= 2.
+    require_consecutive_off = constraints.get("require_consecutive_off", False)
+    min_consecutive = constraints.get("min_days_off_per_week", 0) or 0
+    if require_consecutive_off and off_index is not None and min_consecutive >= 2:
+        # Build automaton: states 0..min_consecutive where state min_consecutive = "satisfied"
+        # Symbols: 0 = work, 1 = off
+        num_states = min_consecutive + 1
+        initial_state = 0
+        final_states = [min_consecutive]
+        transition_triples = []
+        for state in range(num_states):
+            for symbol in [0, 1]:  # 0=work, 1=off
+                if state == min_consecutive:
+                    # Already satisfied, stay satisfied
+                    next_state = min_consecutive
+                elif symbol == 0:
+                    # Work: reset consecutive count to 0
+                    next_state = 0
+                else:
+                    # Off: increment consecutive count
+                    next_state = state + 1
+                transition_triples.append((state, symbol, next_state))
+
+        window_size = 7
+        previous_schedule = constraints.get("previous_schedule")
+        previous_dates = constraints.get("previous_dates")
+
+        for e in range(num_employees):
+            emp_id = roster[e].get("id", f"emp_{e}")
+
+            # Get previous month's last (window_size - 1) off/work status
+            prev_off_status = []
+            if previous_schedule and previous_dates and emp_id in previous_schedule:
+                prev_shifts = previous_schedule[emp_id]
+                K = min(window_size - 1, len(prev_shifts))
+                for i in range(len(prev_shifts) - K, len(prev_shifts)):
+                    prev_off_status.append(1 if prev_shifts[i] == "O" else 0)
+
+            # Build sequence of "is off" indicators for this employee
+            # Previous month's days as int constants + current month as BoolVars
+            off_seq = []
+            for val in prev_off_status:
+                off_seq.append(val)  # Constant
+            for d in range(num_days):
+                off_seq.append(work[e, off_index, d])  # BoolVar (1=off)
+
+            # Apply automaton to each 7-day window that includes at least one current-month day
+            num_prev = len(prev_off_status)
+            for start in range(len(off_seq) - window_size + 1):
+                # Skip windows entirely in previous month
+                if start + window_size <= num_prev:
+                    continue
+                window_vars = off_seq[start : start + window_size]
+                model.add_automaton(
+                    window_vars,
+                    initial_state,
+                    final_states,
+                    transition_triples,
+                )
+
     # Optional max consecutive work days. None or 0 = disabled.
     # When previous_schedule is provided, extend to consider last K days of previous month.
     max_consecutive = constraints.get("max_consecutive_work_days")
@@ -773,19 +891,32 @@ def build_model(
     # Mode "model": solver picks which shift each employee is assigned to.
     # Mode "roster": shift is pre-defined in roster[e]["shift"].
     fixed_shift_mode = constraints.get("fixed_shift_mode")
+    # Pre-assigned shifts from previous solution (for consistency between Solution 1 & 2)
+    fixed_shift_assignments = constraints.get("fixed_shift_assignments", {})
     if fixed_shift_mode == "model":
         # Create decision vars: assigned_shift[e, s] = 1 if employee e is assigned to shift s
         assigned_shift = {}
         for e in range(num_employees):
-            for s in work_shift_indices:
-                assigned_shift[e, s] = model.new_bool_var(f"assigned_shift_{e}_{s}")
-            # Exactly one shift per employee
-            model.add_exactly_one(assigned_shift[e, s] for s in work_shift_indices)
-        # Can only work assigned shift: work[e, s, d] <= assigned_shift[e, s]
-        for e in range(num_employees):
-            for s in work_shift_indices:
-                for d in range(num_days):
-                    model.add(work[e, s, d] <= assigned_shift[e, s])
+            emp_id = roster[e].get("id", f"emp_{e}") if roster else f"emp_{e}"
+            pre_assigned = fixed_shift_assignments.get(emp_id)
+            if pre_assigned is not None and pre_assigned in shift_index:
+                # Employee has pre-assigned shift from previous solution: fix it
+                assigned_s = shift_index[pre_assigned]
+                for s in work_shift_indices:
+                    if s == assigned_s:
+                        assigned_shift[e, s] = model.new_constant(1)
+                    else:
+                        assigned_shift[e, s] = model.new_constant(0)
+                        for d in range(num_days):
+                            model.add(work[e, s, d] == 0)
+            else:
+                # New employee or no prior assignment: solver picks
+                for s in work_shift_indices:
+                    assigned_shift[e, s] = model.new_bool_var(f"assigned_shift_{e}_{s}")
+                model.add_exactly_one(assigned_shift[e, s] for s in work_shift_indices)
+                for s in work_shift_indices:
+                    for d in range(num_days):
+                        model.add(work[e, s, d] <= assigned_shift[e, s])
     elif fixed_shift_mode == "roster":
         # Shift is pre-defined in roster; forbid working any other shift.
         # Employees without a 'shift' field (e.g., padded during hire search) use model behavior.
@@ -970,6 +1101,44 @@ def recommend_hiring_gender_split(
     return (h_m, h_f)
 
 
+def extract_shift_assignments(
+    solver: cp_model.CpSolver,
+    work: Dict[Tuple[int, int, int], cp_model.BoolVarT],
+    num_employees: int,
+    shifts: list[str],
+    dates: list[dt.date],
+    roster: Optional[list[dict[str, Any]]] = None,
+) -> Dict[str, str]:
+    """Extract the shift each employee was assigned to from a solved model.
+
+    Returns a dict mapping employee ID to their assigned shift name.
+    """
+    work_shifts = [s for s in shifts if s != "O"]
+    shift_index = {s: i for i, s in enumerate(shifts)}
+    assignments = {}
+    num_days = len(dates)
+
+    for e in range(num_employees):
+        emp_id = roster[e].get("id", f"emp_{e}") if roster else f"emp_{e}"
+        # Find which shift this employee worked most days on
+        shift_days = {s: 0 for s in work_shifts}
+        for s in work_shifts:
+            s_idx = shift_index[s]
+            for d in range(num_days):
+                try:
+                    if solver.value(work[e, s_idx, d]):
+                        shift_days[s] += 1
+                except (ValueError, KeyError):
+                    continue
+        # Assign to the shift they worked most (should be the only one with fixed_shift)
+        if shift_days:
+            assigned = max(shift_days, key=lambda x: shift_days[x])
+            if shift_days[assigned] > 0:
+                assignments[emp_id] = assigned
+
+    return assignments
+
+
 def recommend_hire_one_gender(
     roster: list[dict[str, Any]],
     target_min_women_ratio: float = 0.4,
@@ -1039,6 +1208,8 @@ def print_solution(
     obj_int_vars: list[cp_model.IntVar],
     obj_int_coeffs: list[int],
     roster: Optional[list[dict[str, Any]]] = None,
+    primary_start: Optional[int] = None,
+    primary_end: Optional[int] = None,
 ) -> None:
     print()
     print(f"{label}")
@@ -1050,14 +1221,47 @@ def print_solution(
         first_label_len = len(schedule_lines[0]) - len(dates) * _CHARS_PER_DAY
         prefix_width = max(prefix_width, first_label_len)
     prefix = " " * (prefix_width - 2)
-    header_days = prefix + "".join(f"{d.day:>{_CHARS_PER_DAY}}" for d in dates)
-    header_week = prefix + "".join(
-        f"{d.strftime('%a')[0]:>{_CHARS_PER_DAY}}" for d in dates
+
+    def format_header(items: list[str]) -> str:
+        if primary_start is not None and primary_end is not None:
+            parts = []
+            if primary_start > 0:
+                parts.append("".join(items[:primary_start]))
+                parts.append("|")
+            parts.append("".join(items[primary_start:primary_end]))
+            if primary_end < len(items):
+                parts.append("|")
+                parts.append("".join(items[primary_end:]))
+            return prefix + "".join(parts)
+        return prefix + "".join(items)
+
+    header_days = format_header([f"{d.day:>{_CHARS_PER_DAY}}" for d in dates])
+    header_week = format_header(
+        [f"{d.strftime('%a')[0]:>{_CHARS_PER_DAY}}" for d in dates]
     )
     print(header_days)
     print(header_week)
-    for line in schedule_lines:
-        print(line)
+    for i, line in enumerate(schedule_lines):
+        if primary_start is not None and primary_end is not None:
+            # Re-format line to add separators
+            label = line[:prefix_width]
+            content = line[prefix_width:]
+            parts = []
+            # chars per day = _CHARS_PER_DAY
+            day_strs = [
+                content[j * _CHARS_PER_DAY : (j + 1) * _CHARS_PER_DAY]
+                for j in range(len(dates))
+            ]
+            if primary_start > 0:
+                parts.append("".join(day_strs[:primary_start]))
+                parts.append("|")
+            parts.append("".join(day_strs[primary_start:primary_end]))
+            if primary_end < len(day_strs):
+                parts.append("|")
+                parts.append("".join(day_strs[primary_end:]))
+            print(label + "".join(parts))
+        else:
+            print(line)
     print()
     if obj_bool_vars or obj_int_vars:
         print("Penalties:")

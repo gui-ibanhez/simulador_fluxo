@@ -11,18 +11,22 @@ import csv
 import json
 import random
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from ortools.sat.python import cp_model
 
 from store_staffing_optimizer import (
-    build_dates,
+    build_complete_week_dates,
+    build_model,
+    build_roster_composition,
     compute_understaff_summary,
+    extract_shift_assignments,
     load_previous_schedule,
     print_solution,
     recommend_hire_one_gender,
     schedule_to_dict,
     solve_once,
+    status_name,
     validate_demand,
     validate_women_sunday_alternate,
 )
@@ -60,19 +64,37 @@ def make_roster_from_composition(men: int, women: int) -> list[dict]:
     return roster
 
 
-def scale_roster_composition(men: int, women: int, total: int) -> list[dict]:
-    """Scale men/women ratio to total employees (for hiring search)."""
-    if men + women <= 0:
-        return [{"id": f"emp_{e}", "gender": "M"} for e in range(total)]
-    n_m = round(total * men / (men + women))
-    n_m = max(0, min(total, n_m))
-    n_f = total - n_m
-    roster = []
-    for e in range(n_m):
-        roster.append({"id": f"emp_{e}", "gender": "M"})
-    for e in range(n_m, total):
-        roster.append({"id": f"emp_{e}", "gender": "F"})
-    return roster
+def scale_roster(
+    base_roster: Optional[list[dict]],
+    target_total: int,
+    seed: int = 7,
+    target_min_women_ratio: float = 0.4,
+    target_max_women_ratio: float = 0.6,
+) -> list[dict]:
+    """Scale roster to target total while preserving existing members and their attributes."""
+    if not base_roster:
+        # No base roster: create from scratch with fake IDs
+        n_m = round(target_total * 0.5)
+        roster = []
+        for i in range(n_m):
+            roster.append({"id": f"emp_{i}", "gender": "M"})
+        for i in range(n_m, target_total):
+            roster.append({"id": f"emp_{i}", "gender": "F"})
+        return roster
+
+    if target_total <= len(base_roster):
+        # Scale down: keep first N
+        return base_roster[:target_total]
+
+    # Scale up: keep all existing, add new ones
+    new_roster = list(base_roster)
+    num_to_hire = target_total - len(base_roster)
+    for i in range(num_to_hire):
+        g = recommend_hire_one_gender(
+            new_roster, target_min_women_ratio, target_max_women_ratio
+        )
+        new_roster.append({"id": f"emp_{len(new_roster)}", "gender": g})
+    return new_roster
 
 
 def load_roster(path: str) -> list[dict]:
@@ -163,9 +185,9 @@ def make_fake_demand(
             for i, sh in enumerate(work_shifts):
                 b = bases[i] if i < len(bases) else 1
                 if add_random:
-                    row[sh] = max(1, b + rng.choice([-1, 0, 1]))
+                    row[sh] = max(0, b + rng.choice([-1, 0, 1]))
                 else:
-                    row[sh] = max(1, b)
+                    row[sh] = b
             demand.append(row)
         return demand
     # M/A mode
@@ -189,11 +211,11 @@ def make_fake_demand(
             base_m = bm[idx] if isinstance(bm, list) else bm
             base_a = ba[idx] if isinstance(ba, list) else ba
         if add_random:
-            m = max(1, base_m + rng.choice([-1, 0, 1]))
-            a = max(1, base_a + rng.choice([-1, 0, 1]))
+            m = max(0, base_m + rng.choice([-1, 0, 1]))
+            a = max(0, base_a + rng.choice([-1, 0, 1]))
         else:
-            m = max(1, base_m)
-            a = max(1, base_a)
+            m = base_m
+            a = base_a
         demand.append({"M": m, "A": a})
     return demand
 
@@ -283,12 +305,24 @@ def _parse_direct_base_by_day(s: str, num_shifts: int) -> list[list[int]]:
                 vals = vals[:num_shifts]
             result.append(vals)
         return result
-    # Single value
+    # Single group or single value
     try:
         val = int(s)
+        return [[val] * num_shifts for _ in range(7)]
     except ValueError:
-        val = int(s.split(",")[0].strip())
-    return [[max(1, val)] * num_shifts for _ in range(7)]
+        pass
+
+    if "," in s:
+        vals = [int(x.strip()) for x in s.split(",")]
+        # Pad or truncate to num_shifts
+        if len(vals) < num_shifts:
+            vals = vals + [vals[-1] if vals else 1] * (num_shifts - len(vals))
+        else:
+            vals = vals[:num_shifts]
+        return [vals for _ in range(7)]
+
+    # Fallback
+    return [[1] * num_shifts for _ in range(7)]
 
 
 def _parse_per_shift_int(s: str, shift_names: list[str], default: int = 1) -> dict[str, int]:
@@ -461,10 +495,6 @@ def demand_from_estimation_by_store(
     return demand_by_store
 
 
-def status_name(status):
-    return cp_model.CpSolver().status_name(status)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Demo: store staffing optimizer with fake demand. All parameters can be set via CLI."
@@ -579,6 +609,11 @@ def main():
     parser.add_argument("--max_shifts_per_week", type=int, default=6, help="Max working shifts per employee per week. Default 6 so min_days_off(1)+max_shifts(6)=7. Use 0 to disable.")
     parser.add_argument("--min_days_off_per_week", type=int, default=None, help="Min rest days per employee per week (Sun–Sat). Default 7 - max_shifts_per_week. Use 0 to disable.")
     parser.add_argument("--max_consecutive_work_days", type=int, default=None, help="Max consecutive working days. Default max_shifts_per_week. Use 0 to disable.")
+    parser.add_argument(
+        "--require_consecutive_off",
+        action="store_true",
+        help="When enabled, min_days_off_per_week must be consecutive (not scattered). Only applies when min_days_off >= 2.",
+    )
     parser.add_argument(
         "--sequence_constraints",
         type=str,
@@ -734,7 +769,8 @@ def main():
         val = getattr(args, name)
         print(f"  --{name}: {val!r}")
 
-    dates = build_dates(args.year, args.month)
+    # Build dates: complete calendar weeks covering the month
+    dates, primary_start, primary_end = build_complete_week_dates(args.year, args.month)
 
     # Parse store_shifts: None = use M/A for all; else {store_id: [O, S1, ..., Sn]}
     shifts_by_store = _parse_store_shifts(args.store_shifts, store_ids)
@@ -907,6 +943,7 @@ def main():
             "max_shifts_per_week": args.max_shifts_per_week if args.max_shifts_per_week else None,
             "min_days_off_per_week": args.min_days_off_per_week if args.min_days_off_per_week else None,
             "max_consecutive_work_days": args.max_consecutive_work_days if args.max_consecutive_work_days else None,
+            "require_consecutive_off": args.require_consecutive_off,
             "max_weekend_work_shifts_women": args.max_weekend_work_shifts_women,
             "min_sunday_off_per_month": args.min_sunday_off_per_month,
             "min_sunday_off_women": args.min_sunday_off_women,
@@ -1007,10 +1044,6 @@ def main():
             print(f"Current roster understaffed: {e}")
 
         if understaffed:
-            print(
-                f"Searching for best roster size (hire more) in "
-                f"[{effective_min}, {args.max_employees}]..."
-            )
             relaxed_constraints = {
                 **constraints,
                 "relax_cover": True,
@@ -1056,6 +1089,17 @@ def main():
         best = None
         best_roster = None
 
+        if constraints.get("fixed_shift_mode") and current["status"] in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            shift_assignments = extract_shift_assignments(
+                current["solver"],
+                current["work"],
+                args.current_employees,
+                shifts,
+                dates,
+                roster,
+            )
+            constraints["fixed_shift_assignments"] = shift_assignments
+
         run_roster_search = (
             roster_from_file is not None
             or current["status"] in (cp_model.OPTIMAL, cp_model.FEASIBLE)
@@ -1082,19 +1126,14 @@ def main():
                             f"num_employees={num_employees}"
                         )
                 else:
-                    if roster_from_file is not None:
-                        try_roster = scale_roster_composition(
-                            file_roster_men, file_roster_women, num_employees
-                        )
-                        src = "scale_roster_composition"
-                    elif has_explicit_roster:
-                        try_roster = scale_roster_composition(
-                            roster_men, roster_women, num_employees
-                        )
-                        src = "scale_roster_composition"
-                    else:
-                        try_roster = make_fake_roster(num_employees, args.seed)
-                        src = "make_fake_roster"
+                    try_roster = scale_roster(
+                        roster,
+                        num_employees,
+                        args.seed,
+                        args.target_min_women_ratio,
+                        args.target_max_women_ratio,
+                    )
+                    src = "scale_roster"
                     if args.debug_sunday_constraints:
                         women = sum(
                             1 for e in try_roster if str(e.get("gender", "M")).upper() == "F"
@@ -1215,6 +1254,8 @@ def main():
                 current_roster_result["obj_int_vars"],
                 current_roster_result["obj_int_coeffs"],
                 roster=roster,
+                primary_start=primary_start,
+                primary_end=primary_end,
             )
             # Validate Solution 1
             if constraints.get("women_sunday_off_alternate", True):
@@ -1254,6 +1295,8 @@ def main():
             best_result["obj_int_vars"],
             best_result["obj_int_coeffs"],
             roster=best_roster,
+            primary_start=primary_start,
+            primary_end=primary_end,
         )
         # Validate legal rule: women cannot be off on two consecutive Sundays (Solution 2)
         if constraints.get("women_sunday_off_alternate", True):
@@ -1277,25 +1320,31 @@ def main():
             print(f"[{store_id}] Legal rule: women alternate Sundays OK")
         if best_employees > args.current_employees:
             num_to_hire = best_employees - args.current_employees
-            # Derive hire split from actual best_roster so recommendation matches schedule
-            n_m_cur = sum(1 for e in roster if e.get("gender") == "M")
-            n_f_cur = sum(1 for e in roster if e.get("gender") == "F")
-            n_m_after = sum(1 for e in best_roster if e.get("gender") == "M")
-            n_f_after = sum(1 for e in best_roster if e.get("gender") == "F")
-            h_m = n_m_after - n_m_cur
-            h_f = n_f_after - n_f_cur
-            if h_m and h_f:
-                gender_rec = f" To maintain balance: {h_m} man, {h_f} woman."
-            elif h_m:
-                gender_rec = f" To maintain balance: {h_m} men."
-            else:
-                gender_rec = f" To maintain balance: {h_f} women."
-            print(
-                f"[{store_id}] Recommendation: hire {num_to_hire} more "
-                f"employee(s) to meet demand (current: {args.current_employees}).{gender_rec}"
+            # Identify which employees are new and extract their shifts
+            best_assignments = extract_shift_assignments(
+                best_result["solver"],
+                best_result["work"],
+                best_employees,
+                shifts,
+                dates,
+                best_roster,
             )
+            new_hires_info = []
+            original_ids = {e["id"] for e in roster}
+            for e in best_roster:
+                if e["id"] not in original_ids:
+                    s = best_assignments.get(e["id"], "?")
+                    new_hires_info.append(f"{e['gender']} ({s})")
+
             print(
-                f"[{store_id}] Current roster: {n_m_cur} men, {n_f_cur} women. "
+                f"[{store_id}] Recommendation: hire {num_to_hire} more employee(s) to meet demand (current: {args.current_employees})."
+            )
+            print(f"[{store_id}] Hires needed: {', '.join(new_hires_info)}")
+            n_m_after = sum(1 for e in best_roster if e.get("gender") == "M")
+            n_f_after = best_employees - n_m_after
+            print(
+                f"[{store_id}] Current roster: {file_roster_men if roster_from_file else roster_men} men, "
+                f"{file_roster_women if roster_from_file else roster_women} women. "
                 f"After hire: {n_m_after} men, {n_f_after} women."
             )
         elif best_employees < args.current_employees:
@@ -1314,6 +1363,8 @@ def main():
                 dates,
                 best_roster,
                 store_id=store_id if len(store_ids) > 1 else None,
+                primary_start=primary_start,
+                primary_end=primary_end,
             )
 
     if args.output_schedule and output_schedules:

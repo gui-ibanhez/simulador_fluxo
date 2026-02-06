@@ -102,13 +102,15 @@ python store_optimizer_demo.py --store_ids A,B --store_profiles A:weekend_heavy,
 ```
 
 ### Optimizer constraints
-Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`. Use `0` to disable.
+Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`, `--require_consecutive_off` disabled. Use `0` to disable numeric constraints.
+- `--require_consecutive_off`: When enabled, enforces that `min_days_off_per_week` must be consecutive (not scattered). Only applies when min_days_off >= 2. Uses rolling 7-day windows with automaton constraints.
 ```bash
 python store_optimizer_demo.py --excess_penalty_M 2 --excess_penalty_A 2 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_shifts_per_week 5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --min_days_off_per_week 1 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_consecutive_work_days 5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --min_days_off_per_week 0 --max_shifts_per_week 0 --max_consecutive_work_days 0 --params max_time_in_seconds:0.5  # disable all
+python store_optimizer_demo.py --max_shifts_per_week 5 --min_days_off_per_week 2 --require_consecutive_off --params max_time_in_seconds:0.5  # 2 days off must be consecutive
 python store_optimizer_demo.py --sequence_constraints M:1,1,0,3,4,5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --weekly_sum_constraints O:1,2,7,2,3,4 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_weekend_work_shifts_women 2 --params max_time_in_seconds:0.5

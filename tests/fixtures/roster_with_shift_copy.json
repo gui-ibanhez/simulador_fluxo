@@ -1,0 +1,78 @@
+[
+    {
+        "id": "E001",
+        "gender": "F",
+        "shift": "S1"
+    },
+    {
+        "id": "E002",
+        "gender": "F",
+        "shift": "S1"
+    },
+    {
+        "id": "E003",
+        "gender": "F",
+        "shift": "S1"
+    },
+    {
+        "id": "E004",
+        "gender": "F",
+        "shift": "S1"
+    },
+    {
+        "id": "E005",
+        "gender": "M",
+        "shift": "S1"
+    },
+    {
+        "id": "E006",
+        "gender": "F",
+        "shift": "S2"
+    },
+    {
+        "id": "E007",
+        "gender": "M",
+        "shift": "S2"
+    },
+    {
+        "id": "E008",
+        "gender": "F",
+        "shift": "S3"
+    },
+    {
+        "id": "E009",
+        "gender": "F",
+        "shift": "S3"
+    },
+    {
+        "id": "E010",
+        "gender": "F",
+        "shift": "S4"
+    },
+    {
+        "id": "E011",
+        "gender": "F",
+        "shift": "S4"
+    },
+    {
+        "id": "E012",
+        "gender": "M",
+        "shift": "S4"
+    },
+    {
+        "id": "E013",
+        "gender": "F",
+        "shift": "S5"
+    },
+    {
+        "id": "E014",
+        "gender": "M",
+        "shift": "S5"
+    },
+    {
+        "id": "E015",
+        "gender": "F",
+        "shift": "S4"
+    }
+
+]

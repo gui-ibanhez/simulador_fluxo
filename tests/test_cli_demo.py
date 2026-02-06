@@ -373,7 +373,16 @@ def _parse_schedule_and_check_women_alternate_sundays(stdout: str, year: int = 2
             if "(F)" not in label:
                 continue
             # Extract shift for each day; each day is 3 chars
+            # Handle pipes | that separate prev/current/next month context
             shift_part = shift_part.rstrip()
+            if "|" in shift_part:
+                # Format: "prev_days|current_month_days|next_days" - extract middle part
+                pipe_parts = shift_part.split("|")
+                if len(pipe_parts) == 3:
+                    shift_part = pipe_parts[1]  # Only the current month
+                elif len(pipe_parts) == 2:
+                    # Could be "prev|current" or "current|next"
+                    shift_part = pipe_parts[1] if len(pipe_parts[0]) < len(pipe_parts[1]) else pipe_parts[0]
             shifts_by_day = []
             for i in range(num_days):
                 start = i * chars_per_day
@@ -389,9 +398,9 @@ def _parse_schedule_and_check_women_alternate_sundays(stdout: str, year: int = 2
                 if idx1 < len(shifts_by_day) and idx2 < len(shifts_by_day):
                     s1 = shifts_by_day[idx1]
                     s2 = shifts_by_day[idx2]
-                    if s1 == "O" and s2 == "O":
+                    if s1 != "O" and s2 != "O":
                         violations.append(
-                            f"Employee {label.strip()}: off on consecutive Sundays "
+                            f"Employee {label.strip()}: worked consecutive Sundays "
                             f"day {d1} and day {d2}"
                         )
         elif in_schedule and line.strip() and not line.strip().startswith("employee") and "Solution" not in line:
