@@ -733,6 +733,11 @@ def main():
         default="off",
         help="Fixed shift constraint: 'off' (disabled), 'model' (solver picks one shift per employee), 'roster' (shift defined in roster 'shift' field).",
     )
+    parser.add_argument(
+        "--skip_optimization",
+        action="store_true",
+        help="Skip Solution 2 (optimized roster search). Only generate Solution 1 with current roster.",
+    )
     args = parser.parse_args()
 
     # Dynamic defaults based on max_shifts_per_week
@@ -1115,10 +1120,15 @@ def main():
             constraints["fixed_shift_assignments"] = shift_assignments
 
         run_roster_search = (
-            roster_from_file is not None
-            or current["status"] in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+            not args.skip_optimization
+            and (
+                roster_from_file is not None
+                or current["status"] in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+            )
         )
-        run_iterative_hire = understaffed and roster_from_file is None
+        run_iterative_hire = (
+            not args.skip_optimization and understaffed and roster_from_file is None
+        )
 
         if run_roster_search:
             search_msg = (
@@ -1226,15 +1236,18 @@ def main():
                 best = (args.current_employees, relaxed_result)
                 best_roster = roster
 
-        if best is None:
+        if best is None and not args.skip_optimization:
             print(
                 f"[{store_id}] No feasible schedule between {effective_min} and {args.max_employees}."
             )
             continue
 
-        best_employees, best_result = best
-        if best_roster is None:
-            best_roster = roster
+        if best is not None:
+            best_employees, best_result = best
+            if best_roster is None:
+                best_roster = roster
+        else:
+            best_employees, best_result = None, None
 
         # Solution 1: best schedule with current roster (strict or relaxed)
         current_roster_result = None
@@ -1284,94 +1297,109 @@ def main():
                     raise SystemExit(1)
 
         # Solution 2: optimized schedule (best roster from search)
-        sol2_label = (
-            f"[{store_id}] Solution 2 (optimized): {best_employees} employees"
-            + (f" – hire {best_employees - args.current_employees}" if best_employees > args.current_employees else "")
-            + (f" – reduce by {args.current_employees - best_employees}" if best_employees < args.current_employees else "")
-        )
-        print_solution(
-            sol2_label,
-            best_result["solver"],
-            best_result["work"],
-            best_employees,
-            shifts,
-            dates,
-            best_result["obj_bool_vars"],
-            best_result["obj_bool_coeffs"],
-            best_result["obj_int_vars"],
-            best_result["obj_int_coeffs"],
-            roster=best_roster,
-            primary_start=primary_start,
-            primary_end=primary_end,
-        )
-        # Validate legal rule: women cannot be off on two consecutive Sundays (Solution 2)
-        if constraints.get("women_sunday_off_alternate", True):
-            if args.debug_sunday_constraints:
-                print("[DEBUG:sunday] validate Solution 2 (optimized)")
-            violations = validate_women_sunday_alternate(
+        if not args.skip_optimization and best_result is not None:
+            sol2_label = (
+                f"[{store_id}] Solution 2 (optimized): {best_employees} employees"
+                + (f" – hire {best_employees - args.current_employees}" if best_employees > args.current_employees else "")
+                + (f" – reduce by {args.current_employees - best_employees}" if best_employees < args.current_employees else "")
+            )
+            print_solution(
+                sol2_label,
                 best_result["solver"],
                 best_result["work"],
                 best_employees,
-                dates,
                 shifts,
+                dates,
+                best_result["obj_bool_vars"],
+                best_result["obj_bool_coeffs"],
+                best_result["obj_int_vars"],
+                best_result["obj_int_coeffs"],
                 roster=best_roster,
-                debug=args.debug_sunday_constraints,
-            )
-            if violations:
-                print(f"[{store_id}] LEGAL RULE VIOLATION in Solution 2 (women alternate Sundays):")
-                for v in violations:
-                    print(f"  ! {v}")
-                print(f"[{store_id}] Refusing to output schedule. Fix the model.")
-                raise SystemExit(1)
-            print(f"[{store_id}] Legal rule: women alternate Sundays OK")
-        if best_employees > args.current_employees:
-            num_to_hire = best_employees - args.current_employees
-            # Identify which employees are new and extract their shifts
-            best_assignments = extract_shift_assignments(
-                best_result["solver"],
-                best_result["work"],
-                best_employees,
-                shifts,
-                dates,
-                best_roster,
-            )
-            new_hires_info = []
-            original_ids = {e["id"] for e in roster}
-            for e in best_roster:
-                if e["id"] not in original_ids:
-                    s = best_assignments.get(e["id"], "?")
-                    new_hires_info.append(f"{e['gender']} ({s})")
-
-            print(
-                f"[{store_id}] Recommendation: hire {num_to_hire} more employee(s) to meet demand (current: {args.current_employees})."
-            )
-            print(f"[{store_id}] Hires needed: {', '.join(new_hires_info)}")
-            n_m_after = sum(1 for e in best_roster if e.get("gender") == "M")
-            n_f_after = best_employees - n_m_after
-            print(
-                f"[{store_id}] Current roster: {file_roster_men if roster_from_file else roster_men} men, "
-                f"{file_roster_women if roster_from_file else roster_women} women. "
-                f"After hire: {n_m_after} men, {n_f_after} women."
-            )
-        elif best_employees < args.current_employees:
-            print(
-                f"[{store_id}] Recommendation: roster can be reduced by "
-                f"{args.current_employees - best_employees} (current: {args.current_employees})."
-            )
-        print(best_result["solver"].response_stats())
-
-        if args.output_schedule:
-            output_schedules[store_id] = schedule_to_dict(
-                best_result["solver"],
-                best_result["work"],
-                best_employees,
-                shifts,
-                dates,
-                best_roster,
-                store_id=store_id if len(store_ids) > 1 else None,
                 primary_start=primary_start,
                 primary_end=primary_end,
             )
+            # Validate legal rule: women cannot be off on two consecutive Sundays (Solution 2)
+            if constraints.get("women_sunday_off_alternate", True):
+                if args.debug_sunday_constraints:
+                    print("[DEBUG:sunday] validate Solution 2 (optimized)")
+                violations = validate_women_sunday_alternate(
+                    best_result["solver"],
+                    best_result["work"],
+                    best_employees,
+                    dates,
+                    shifts,
+                    roster=best_roster,
+                    debug=args.debug_sunday_constraints,
+                )
+                if violations:
+                    print(f"[{store_id}] LEGAL RULE VIOLATION in Solution 2 (women alternate Sundays):")
+                    for v in violations:
+                        print(f"  ! {v}")
+                    print(f"[{store_id}] Refusing to output schedule. Fix the model.")
+                    raise SystemExit(1)
+                print(f"[{store_id}] Legal rule: women alternate Sundays OK")
+            if best_employees > args.current_employees:
+                num_to_hire = best_employees - args.current_employees
+                # Identify which employees are new and extract their shifts
+                best_assignments = extract_shift_assignments(
+                    best_result["solver"],
+                    best_result["work"],
+                    best_employees,
+                    shifts,
+                    dates,
+                    best_roster,
+                )
+                new_hires_info = []
+                original_ids = {e["id"] for e in roster}
+                for e in best_roster:
+                    if e["id"] not in original_ids:
+                        s = best_assignments.get(e["id"], "?")
+                        new_hires_info.append(f"{e['gender']} ({s})")
+
+                print(
+                    f"[{store_id}] Recommendation: hire {num_to_hire} more employee(s) to meet demand (current: {args.current_employees})."
+                )
+                print(f"[{store_id}] Hires needed: {', '.join(new_hires_info)}")
+                n_m_after = sum(1 for e in best_roster if e.get("gender") == "M")
+                n_f_after = best_employees - n_m_after
+                print(
+                    f"[{store_id}] Current roster: {file_roster_men if roster_from_file else roster_men} men, "
+                    f"{file_roster_women if roster_from_file else roster_women} women. "
+                    f"After hire: {n_m_after} men, {n_f_after} women."
+                )
+            elif best_employees < args.current_employees:
+                print(
+                    f"[{store_id}] Recommendation: roster can be reduced by "
+                    f"{args.current_employees - best_employees} (current: {args.current_employees})."
+                )
+            print(best_result["solver"].response_stats())
+
+        if args.output_schedule:
+            # Use Solution 1 if skip_optimization, otherwise use Solution 2
+            if args.skip_optimization and current_roster_result is not None:
+                output_schedules[store_id] = schedule_to_dict(
+                    current_roster_result["solver"],
+                    current_roster_result["work"],
+                    args.current_employees,
+                    shifts,
+                    dates,
+                    roster,
+                    store_id=store_id if len(store_ids) > 1 else None,
+                    primary_start=primary_start,
+                    primary_end=primary_end,
+                )
+            elif best_result is not None:
+                output_schedules[store_id] = schedule_to_dict(
+                    best_result["solver"],
+                    best_result["work"],
+                    best_employees,
+                    shifts,
+                    dates,
+                    best_roster,
+                    store_id=store_id if len(store_ids) > 1 else None,
+                    primary_start=primary_start,
+                    primary_end=primary_end,
+                )
 
     if args.output_schedule and output_schedules:
         out_path = Path(args.output_schedule)

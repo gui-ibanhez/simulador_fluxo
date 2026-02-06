@@ -140,6 +140,13 @@ python store_optimizer_demo.py --store_shifts "store:3" --roster_file tests/fixt
 - `--fixed_shift model`: solver picks one shift per employee
 - `--fixed_shift roster`: shift pre-defined in roster JSON (`{"id": "E001", "shift": "S1"}`)
 
+### Skip optimization (Solution 2)
+By default, the optimizer generates two solutions: Solution 1 (actual roster schedule) and Solution 2 (optimized roster size search). Use `--skip_optimization` to only generate Solution 1:
+```bash
+python store_optimizer_demo.py --skip_optimization --params max_time_in_seconds:0.5  # Only Solution 1, no roster search
+```
+This is useful when you only need to generate a schedule for your current employees and don't need the optimization analysis.
+
 ### Solver
 ```bash
 python store_optimizer_demo.py --params max_time_in_seconds:0.5

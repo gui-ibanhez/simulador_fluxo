@@ -258,7 +258,7 @@ Each constraint can make the optimization infeasible. Below: what causes infeasi
    For each candidate roster size \(N\), solve the CP model (cover + optional constraints, minimize objective). Keep the best \(N^*\) and the corresponding schedule.
 
 4. **Output**  
-   Each run prints two solutions: Solution 1 (current roster) and Solution 2 (optimized). Schedule (who works which shift each day) and recommendation (e.g. “hire \(N^* - N_{\text{current}}\)” or “reduce by \(N_{\text{current}} - N^*\)”).
+   Each run prints two solutions: Solution 1 (current roster) and Solution 2 (optimized). Use `--skip_optimization` to only generate Solution 1 (skips the roster search). Schedule (who works which shift each day) and recommendation (e.g. “hire \(N^* - N_{\text{current}}\)” or “reduce by \(N_{\text{current}} - N^*\)”).
 
 ---
 
