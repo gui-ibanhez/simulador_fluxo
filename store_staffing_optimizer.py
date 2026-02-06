@@ -428,11 +428,16 @@ def build_model(
             if shift_name == "O":
                 continue
             required = demand[d][shift_name]
+            s_index = shift_index[shift_name]
+            # When demand is 0, forbid all assignments (shift closed, store closed, etc.)
+            if required == 0:
+                for e in range(num_employees):
+                    model.add(work[e, s_index, d] == 0)
+                continue
             if not relax_cover and required > num_employees:
                 raise ValueError(
                     f"Demand {required} exceeds employees {num_employees} on day {d}."
                 )
-            s_index = shift_index[shift_name]
             if relax_cover:
                 worked = model.new_int_var(0, num_employees, "")
                 model.add(
@@ -691,6 +696,40 @@ def build_model(
                 if all(prev_working[-max_consecutive:]):
                     model.add(work[e, off_index, 0] == 1)
 
+    # Optional max consecutive off days. None or 0 = disabled.
+    # When previous_schedule is provided, extend to consider last K days of previous month.
+    max_consecutive_off = constraints.get("max_consecutive_off_days")
+    if max_consecutive_off is not None and max_consecutive_off > 0 and off_index is not None:
+        for e in range(num_employees):
+            emp_id = roster[e].get("id", f"emp_{e}")
+            prev_off = []
+            if (
+                previous_schedule
+                and previous_dates
+                and emp_id in previous_schedule
+            ):
+                prev_shifts = previous_schedule[emp_id]
+                K = min(max_consecutive_off, len(prev_shifts))
+                for i in range(len(prev_shifts) - K, len(prev_shifts)):
+                    shift_name = prev_shifts[i]
+                    prev_off.append(1 if shift_name == "O" else 0)
+            # Build working vars (1 = working, 0 = off)
+            working = []
+            for d in range(num_days):
+                w_var = model.new_bool_var(f"working_off{e}_{d}")
+                model.add(w_var + work[e, off_index, d] == 1)
+                working.append(w_var)
+            # Constraint: in any (max+1) consecutive days, at least one must be work
+            for start in range(num_days - max_consecutive_off):
+                model.add_bool_or(
+                    [working[i] for i in range(start, start + max_consecutive_off + 1)]
+                )
+            # Sequence continuity: if last max_consecutive_off days of prev were all off, day 0 must be work
+            if prev_off and len(prev_off) >= max_consecutive_off:
+                if all(prev_off[-max_consecutive_off:]):
+                    # Day 0 must NOT be off (must work)
+                    model.add(work[e, off_index, 0] == 0)
+
     # Optional max weekend work shifts for women.
     max_weekend_work_shifts_women = constraints.get("max_weekend_work_shifts_women")
     if max_weekend_work_shifts_women is not None:
@@ -855,6 +894,20 @@ def build_model(
             model.add(shortage >= min_work_days - total_work_e)
             obj_int_vars.append(shortage)
             obj_int_coeffs.append(min_work_days_penalty)
+
+    # Minimize off days (maximize utilization). When enabled, adds a penalty for each
+    # off day, causing the solver to prefer assigning more work shifts even beyond
+    # the minimum demand. Useful for Solution 1 (actual roster) where we want everyone
+    # working as much as possible given constraints.
+    minimize_off_penalty = int(constraints.get("minimize_off_days_penalty", 0))
+    if minimize_off_penalty > 0 and off_index is not None:
+        for e in range(num_employees):
+            off_days_e = model.new_int_var(0, num_days, f"off_days_{e}")
+            model.add(
+                off_days_e == sum(work[e, off_index, d] for d in range(num_days))
+            )
+            obj_int_vars.append(off_days_e)
+            obj_int_coeffs.append(minimize_off_penalty)
 
     # Soft stability: prefer same shift as previous month (by weekday)
     stability_penalty = int(constraints.get("stability_penalty", 0))

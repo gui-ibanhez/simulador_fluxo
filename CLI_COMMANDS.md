@@ -102,13 +102,15 @@ python store_optimizer_demo.py --store_ids A,B --store_profiles A:weekend_heavy,
 ```
 
 ### Optimizer constraints
-Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`, `--require_consecutive_off` disabled. Use `0` to disable numeric constraints.
+Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--max_consecutive_off_days None`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`, `--require_consecutive_off` disabled, `--minimize_off_days_penalty 1`. Use `0` to disable numeric constraints.
 - `--require_consecutive_off`: When enabled, enforces that `min_days_off_per_week` must be consecutive (not scattered). Only applies when min_days_off >= 2. Uses rolling 7-day windows with automaton constraints.
+- `--minimize_off_days_penalty`: Penalty per off day for Solution 1 (actual roster). When > 0, the solver minimizes days off to maximize utilization. Does NOT affect Solution 2 (optimized roster search). Default 1, set to 0 to disable.
 ```bash
 python store_optimizer_demo.py --excess_penalty_M 2 --excess_penalty_A 2 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_shifts_per_week 5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --min_days_off_per_week 1 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --max_consecutive_work_days 5 --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --max_consecutive_off_days 2 --params max_time_in_seconds:0.5  # max 2 consecutive off days (e.g., Sat-Sun ok, Fri-Sat-Sun not ok)
 python store_optimizer_demo.py --min_days_off_per_week 0 --max_shifts_per_week 0 --max_consecutive_work_days 0 --params max_time_in_seconds:0.5  # disable all
 python store_optimizer_demo.py --max_shifts_per_week 5 --min_days_off_per_week 2 --require_consecutive_off --params max_time_in_seconds:0.5  # 2 days off must be consecutive
 python store_optimizer_demo.py --sequence_constraints M:1,1,0,3,4,5 --params max_time_in_seconds:0.5
@@ -120,6 +122,8 @@ python store_optimizer_demo.py --no_women_sunday_off_alternate --params max_time
 python store_optimizer_demo.py --spread_sunday_shifts_penalty 10 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --spread_shifts_penalty 5 --params max_time_in_seconds:0.5
 python store_optimizer_demo.py --min_work_days_per_month 15 --min_work_days_penalty 5 --params max_time_in_seconds:0.5
+python store_optimizer_demo.py --minimize_off_days_penalty 1 --params max_time_in_seconds:0.5  # Solution 1 maximizes utilization (default)
+python store_optimizer_demo.py --minimize_off_days_penalty 0 --params max_time_in_seconds:0.5  # Disable: Solution 1 uses same objective as Solution 2
 python store_optimizer_demo.py --target_min_women_ratio 0.35 --target_max_women_ratio 0.65 --params max_time_in_seconds:0.5
 ```
 

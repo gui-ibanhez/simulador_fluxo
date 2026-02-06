@@ -182,20 +182,33 @@ The scheduler receives demand \(r_{d,s}\) for each day \(d\) and work shift \(s\
    \sum_{e=0}^{N-1} x_{e,s,d} \ge r_{d,s}.
    \]
    The number of people assigned to shift \(s\) on day \(d\) must be at least the required \(r_{d,s}\). If \(r_{d,s} > N\) for some \((d,s)\), the problem is infeasible for that roster size (we need more than \(N\) people that day).
+   
+   **Special case: demand = 0** (shift closed): When \(r_{d,s} = 0\), no one can be assigned to shift \(s\) on day \(d\). This is used when a shift doesn't exist on a particular day (e.g., store closed on Sundays for certain shifts). The constraint becomes:
+   \[
+   \sum_{e=0}^{N-1} x_{e,s,d} = 0.
+   \]
 
 3. **Optional policy constraints** (if enabled): e.g. max working shifts per week per employee, min days off per week, max consecutive work days. These are linear or logical constraints on the \(x_{e,s,d}\).
 
 #### 4.3 Objective (what we minimize)
 
+The system produces two solutions with **different objectives**:
+
+**Solution 1 (actual roster)**: Minimizes days off to maximize utilization.
+- Adds penalty for each off day per employee: \(\sum_e \text{off\_days}_e \cdot w_{\text{off}}\)
+- Effect: if demand is 3 for shift S1 but 5 people can work it, the solver prefers assigning all 5
+- This is the schedule you'll actually use; everyone works as much as possible within constraints
+- Controlled by `--minimize_off_days_penalty` (default 1, set to 0 to disable)
+
+**Solution 2 (optimized roster)**: Minimizes excess staffing for workforce planning.
 - **Excess cover**: For each \((d,s)\), define *assigned* \(a_{d,s} = \sum_e x_{e,s,d}\). We require \(a_{d,s} \ge r_{d,s}\). If we assign *more* than required, we penalize the excess. So we have penalty coefficients \(w_s\) (e.g. per shift) and
   \[
   \text{excess}_{d,s} = \max\bigl(0,\; a_{d,s} - r_{d,s}\bigr),
   \]
   and the objective includes \(w_{\text{M}} \cdot \text{excess}_{d,\text{M}} + w_{\text{A}} \cdot \text{excess}_{d,\text{A}}\) (summed over days). So the solver tries to meet demand exactly when it can, and otherwise minimizes overstaffing.
+- Use this to determine if you need to hire, reduce, or transfer employees between stores
 
-- Other soft constraints (e.g. sequence or weekly sum preferences, spread of Sunday shifts, spread of total shifts across roster) can add more penalty terms. **Total objective** = sum of all these penalties. We **minimize** it.
-
-So: **demand \(r_{d,s}\) is fixed**; the model only chooses assignments \(x_{e,s,d}\) (and thus \(a_{d,s}\)) so that cover is satisfied and the objective is as small as possible.
+Both solutions respect all hard constraints (max shifts per week, min days off, etc.). Other soft constraints (e.g. sequence or weekly sum preferences, spread of Sunday shifts, spread of total shifts across roster) apply to both. **Total objective** = sum of all penalty terms. We **minimize** it.
 
 #### 4.4 How the “best” roster size is chosen (iterative hire)
 
@@ -223,6 +236,7 @@ Each constraint can make the optimization infeasible. Below: what causes infeasi
 | **Max shifts per week** | Total demand for work shifts in a week exceeds \(N \times \text{max\_shifts\_per\_week}\). Example: 8 people × 5 max = 40 shifts available, but demand needs 45. | Raise `max_shifts_per_week`, hire more people, or reduce demand. |
 | **Min days off per week** | Each employee needs at least \(k\) days off per week (Monday–Sunday). Partial weeks at month boundaries are completed with the previous month when `--previous_schedule` is used. Default \(k=1\); use 0 to disable. | Lower `min_days_off_per_week`, hire more, or reduce demand. |
 | **Max consecutive work days** | Demand pattern forces someone to work more than the limit in a row. Example: demand requires the same 5 people every day for 10 days, but max consecutive = 5. | Raise `max_consecutive_work_days`, hire more (spread load), or reduce demand. |
+| **Max consecutive off days** | Demand pattern leaves someone with too many consecutive off days. Example: low demand on weekends forces 3+ consecutive off days but max consecutive off = 2. | Raise `max_consecutive_off_days`, reduce demand elsewhere, or disable with 0. |
 | **Women's weekend cap** | Weekend demand exceeds total weekend shifts women can provide plus men's capacity. Example: 2 women × 4 max = 8 weekend shifts; need 20 total; 12 must come from men; if only 3 men, infeasible. | Hire more men, raise `max_weekend_work_shifts_women`, or reduce weekend demand. |
 | **Sequence constraints** (hard part) | Hard min/max on consecutive work days cannot be satisfied. Example: demand forces 6 consecutive M shifts but hard_max = 5. | Relax hard bounds or adjust demand. |
 | **Weekly sum constraints** (hard part) | Hard min/max on shifts per week per employee conflicts with cover. Example: demand forces 5 M shifts in a week but hard_max = 4. | Relax hard bounds, hire more, or reduce demand. |

@@ -609,6 +609,7 @@ def main():
     parser.add_argument("--max_shifts_per_week", type=int, default=6, help="Max working shifts per employee per week. Default 6 so min_days_off(1)+max_shifts(6)=7. Use 0 to disable.")
     parser.add_argument("--min_days_off_per_week", type=int, default=None, help="Min rest days per employee per week (Sun–Sat). Default 7 - max_shifts_per_week. Use 0 to disable.")
     parser.add_argument("--max_consecutive_work_days", type=int, default=None, help="Max consecutive working days. Default max_shifts_per_week. Use 0 to disable.")
+    parser.add_argument("--max_consecutive_off_days", type=int, default=None, help="Max consecutive off days per employee. None or 0 = disabled.")
     parser.add_argument(
         "--require_consecutive_off",
         action="store_true",
@@ -691,6 +692,13 @@ def main():
         type=float,
         default=0.6,
         help="Target max women ratio for hiring recommendations.",
+    )
+    parser.add_argument(
+        "--minimize_off_days_penalty",
+        type=int,
+        default=1,
+        help="Penalty per off day for Solution 1 (actual roster). Minimizes days off to maximize utilization. "
+        "Set to 0 to disable. Does not affect Solution 2 (optimized roster). Default 1.",
     )
     # Previous schedule (condition new schedule on last realized)
     parser.add_argument(
@@ -943,6 +951,7 @@ def main():
             "max_shifts_per_week": args.max_shifts_per_week if args.max_shifts_per_week else None,
             "min_days_off_per_week": args.min_days_off_per_week if args.min_days_off_per_week else None,
             "max_consecutive_work_days": args.max_consecutive_work_days if args.max_consecutive_work_days else None,
+            "max_consecutive_off_days": args.max_consecutive_off_days if args.max_consecutive_off_days else None,
             "require_consecutive_off": args.require_consecutive_off,
             "max_weekend_work_shifts_women": args.max_weekend_work_shifts_women,
             "min_sunday_off_per_month": args.min_sunday_off_per_month,
@@ -1020,13 +1029,18 @@ def main():
             )
         understaffed = False
         relaxed_result = None
+        # Solution 1 constraints: add minimize_off_days_penalty to maximize utilization
+        constraints_sol1 = {
+            **constraints,
+            "minimize_off_days_penalty": args.minimize_off_days_penalty,
+        }
         try:
             current = solve_once(
                 args.current_employees,
                 dates,
                 shifts,
                 demand,
-                constraints,
+                constraints_sol1,
                 args.params,
                 args.output_proto,
                 write_proto=bool(args.output_proto) and (store_id == store_ids[0]),
@@ -1045,7 +1059,7 @@ def main():
 
         if understaffed:
             relaxed_constraints = {
-                **constraints,
+                **constraints_sol1,
                 "relax_cover": True,
                 "understaff_penalty": 100,
             }
@@ -1114,17 +1128,9 @@ def main():
             )
             print(f"{search_msg}[{effective_min}, {args.max_employees}]...")
             for num_employees in range(effective_min, args.max_employees + 1):
-                if (
-                    num_employees == args.current_employees
-                    and current["status"] in (cp_model.OPTIMAL, cp_model.FEASIBLE)
-                ):
-                    result = current
+                # Solution 2 uses base constraints (no minimize_off_days) for consistent comparison
+                if num_employees == args.current_employees:
                     try_roster = roster
-                    if args.debug_sunday_constraints:
-                        print(
-                            f"[DEBUG:sunday] demo: roster_search reusing current, "
-                            f"num_employees={num_employees}"
-                        )
                 else:
                     try_roster = scale_roster(
                         roster,
@@ -1133,26 +1139,26 @@ def main():
                         args.target_min_women_ratio,
                         args.target_max_women_ratio,
                     )
-                    src = "scale_roster"
-                    if args.debug_sunday_constraints:
-                        women = sum(
-                            1 for e in try_roster if str(e.get("gender", "M")).upper() == "F"
-                        )
-                        print(
-                            f"[DEBUG:sunday] demo: roster_search source={src}, "
-                            f"num_employees={num_employees}, women={women}"
-                        )
-                    result = solve_once(
-                        num_employees,
-                        dates,
-                        shifts,
-                        demand,
-                        constraints,
-                        args.params,
-                        args.output_proto,
-                        write_proto=False,
-                        roster=try_roster,
+                if args.debug_sunday_constraints:
+                    src = "roster" if num_employees == args.current_employees else "scale_roster"
+                    women = sum(
+                        1 for e in try_roster if str(e.get("gender", "M")).upper() == "F"
                     )
+                    print(
+                        f"[DEBUG:sunday] demo: roster_search source={src}, "
+                        f"num_employees={num_employees}, women={women}"
+                    )
+                result = solve_once(
+                    num_employees,
+                    dates,
+                    shifts,
+                    demand,
+                    constraints,  # Solution 2: no minimize_off_days_penalty
+                    args.params,
+                    args.output_proto,
+                    write_proto=False,
+                    roster=try_roster,
+                )
                 if result["status"] not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                     continue
                 if best is None:

@@ -165,3 +165,117 @@ def test_end_to_end_optimization():
     
     status, _, _ = solve_with_model(2, dates, shifts, demand, constraints, roster)
     assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+
+
+def test_zero_demand_forbids_assignments():
+    """
+    Verify that when demand is 0 for a shift, no one can be assigned to it.
+    This is critical for scenarios like store closed, shift doesn't exist on certain days.
+    """
+    year, month = 2025, 2
+    dates = build_dates(year, month)[:7]  # 1 week: Sat Feb 1 to Fri Feb 7
+    shifts = ["O", "S1", "S2"]
+    
+    # Roster: 3 employees
+    roster = [
+        {"id": "emp_0", "gender": "M"},
+        {"id": "emp_1", "gender": "M"},
+        {"id": "emp_2", "gender": "M"},
+    ]
+    num_employees = 3
+    
+    # Demand: S1=1, S2=1 on all days EXCEPT day 1 (Sunday Feb 2) where S1=0, S2=0
+    # This simulates store closed on Sunday for those shifts
+    demand = []
+    for i, d in enumerate(dates):
+        if d.weekday() == 6:  # Sunday
+            demand.append({"S1": 0, "S2": 0})  # Store closed
+        else:
+            demand.append({"S1": 1, "S2": 1})
+    
+    # Use minimize_off_days_penalty to try to force assignments
+    # If the fix works, no one should be assigned to S1 or S2 on Sunday
+    constraints = {
+        "minimize_off_days_penalty": 10,  # High penalty to try to force work
+        "excess_cover_penalties": {"S1": 1, "S2": 1},
+        "min_days_off_per_week": 0,
+        "max_consecutive_work_days": 7,
+    }
+    
+    status, solver, work = solve_with_model(num_employees, dates, shifts, demand, constraints, roster)
+    assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+    
+    # Find the Sunday (should be index 1 in Feb 2025: Sat=0, Sun=1)
+    sunday_idx = None
+    for i, d in enumerate(dates):
+        if d.weekday() == 6:  # Sunday
+            sunday_idx = i
+            break
+    
+    assert sunday_idx is not None, "Expected a Sunday in the date range"
+    
+    # Verify no one is assigned to S1 or S2 on Sunday
+    shift_index = {"O": 0, "S1": 1, "S2": 2}
+    for e in range(num_employees):
+        s1_assigned = solver.boolean_value(work[e, shift_index["S1"], sunday_idx])
+        s2_assigned = solver.boolean_value(work[e, shift_index["S2"], sunday_idx])
+        assert s1_assigned == 0, f"Employee {e} should NOT be assigned to S1 on Sunday (demand=0)"
+        assert s2_assigned == 0, f"Employee {e} should NOT be assigned to S2 on Sunday (demand=0)"
+        # They should all be Off on Sunday
+        off_assigned = solver.boolean_value(work[e, shift_index["O"], sunday_idx])
+        assert off_assigned == 1, f"Employee {e} should be Off on Sunday when all work shifts have demand=0"
+
+
+def test_zero_demand_with_mixed_shifts():
+    """
+    Verify that when demand is 0 for some shifts but positive for others,
+    only the zero-demand shifts are blocked.
+    """
+    year, month = 2025, 2
+    dates = build_dates(year, month)[:7]  # 1 week
+    shifts = ["O", "S1", "S2", "S3"]
+    
+    roster = [
+        {"id": "emp_0", "gender": "M"},
+        {"id": "emp_1", "gender": "M"},
+        {"id": "emp_2", "gender": "M"},
+    ]
+    num_employees = 3
+    
+    # Demand: on Sunday, only S2 is open (S1=0, S2=2, S3=0)
+    demand = []
+    for i, d in enumerate(dates):
+        if d.weekday() == 6:  # Sunday
+            demand.append({"S1": 0, "S2": 2, "S3": 0})  # Only S2 open
+        else:
+            demand.append({"S1": 1, "S2": 1, "S3": 1})
+    
+    constraints = {
+        "minimize_off_days_penalty": 10,
+        "excess_cover_penalties": {"S1": 1, "S2": 1, "S3": 1},
+        "min_days_off_per_week": 0,
+        "max_consecutive_work_days": 7,
+    }
+    
+    status, solver, work = solve_with_model(num_employees, dates, shifts, demand, constraints, roster)
+    assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+    
+    # Find Sunday
+    sunday_idx = None
+    for i, d in enumerate(dates):
+        if d.weekday() == 6:
+            sunday_idx = i
+            break
+    
+    assert sunday_idx is not None
+    
+    shift_index = {"O": 0, "S1": 1, "S2": 2, "S3": 3}
+    
+    # Count assignments on Sunday
+    s1_count = sum(solver.boolean_value(work[e, shift_index["S1"], sunday_idx]) for e in range(num_employees))
+    s2_count = sum(solver.boolean_value(work[e, shift_index["S2"], sunday_idx]) for e in range(num_employees))
+    s3_count = sum(solver.boolean_value(work[e, shift_index["S3"], sunday_idx]) for e in range(num_employees))
+    
+    assert s1_count == 0, f"S1 should have 0 assignments on Sunday (demand=0), got {s1_count}"
+    assert s2_count >= 2, f"S2 should have at least 2 assignments on Sunday (demand=2), got {s2_count}"
+    assert s3_count == 0, f"S3 should have 0 assignments on Sunday (demand=0), got {s3_count}"
