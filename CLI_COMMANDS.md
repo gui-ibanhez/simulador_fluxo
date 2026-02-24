@@ -190,3 +190,33 @@ python store_staffing_optimizer.py --demand_base_M_weekday=6 --demand_base_A_wee
 python store_staffing_optimizer.py --params max_time_in_seconds:0.5
 python store_staffing_optimizer.py --output_proto /tmp/optimizer_model.pbtxt --params max_time_in_seconds:0.5
 ```
+
+---
+
+## slot_optimizer.py
+
+### Help
+```bash
+python slot_optimizer.py --help
+```
+
+### Close-time-based last start
+Demand rows represent start windows, so you can provide demand until one interval before close (for example, demand up to 21:00 with store close at 22:00).
+```bash
+python slot_optimizer.py \
+  --demand test_data/demand_sample_hour_barra.csv \
+  --roster test_data/roster_barra_males.json \
+  --year 2025 --month 1 \
+  --normal-duration-hours 8 \
+  --special-duration-hours 6 \
+  --close-time 22:00
+```
+
+### Derived close time (no explicit --close-time)
+When `--close-time` is omitted, close time is derived from the demand grid end (`last_slot + interval`).
+```bash
+python slot_optimizer.py \
+  --demand test_data/demand_sample_hour_barra.csv \
+  --roster test_data/roster_barra_males.json \
+  --year 2025 --month 1
+```

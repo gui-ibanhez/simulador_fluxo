@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import logging
 import math
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -52,6 +53,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "slot_interval":              20,
     "normal_duration_hours":      8,
     "special_duration_hours":     6,
+    "close_time":                 None,    # HH:MM; if None derive from demand end (last slot + interval)
     "start_window":               ("10:00", "14:00"),
     "start_step":                 None,    # minutes between start positions; None = same as slot_interval
     "store_type":                 "street",
@@ -66,7 +68,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "min_days_off_per_week":      1,
     "max_consecutive_work_days":  6,
-    "max_consecutive_off_days":   3,
+    "max_consecutive_off_days":   2,
 
     "women_sunday_off_alternate": True,
     "min_sunday_off_per_month":   1,
@@ -76,6 +78,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "min_work_days_per_month":    20,
     "min_work_days_penalty":      10,
+    "exact_work_days":            None,    # hard equality per employee when set
+    "exact_work_days_scope":      "primary",  # "primary" month days or "full" padded horizon
 
     # -- Tier 3 (disabled by default) --
     "closed_days":                None,    # auto from store_type
@@ -97,6 +101,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "max_employees":              None,
     "demand_spread_penalty":      0,
     "special_day_demand_weight":  1.0,
+    "skip_compensation":          False,
+    "show_full_period":           False,
 }
 
 
@@ -487,32 +493,98 @@ def build_slot_model(
     special_dur = int(cfg["special_duration_hours"] * 60 / interval)
     deficit_per_special = normal_dur - special_dur
     max_extra = cfg["max_extra_per_day"]
+    close_time_cfg = cfg.get("close_time")
+    close_time_min = (
+        time_str_to_minutes(close_time_cfg)
+        if close_time_cfg
+        else slot_minutes[-1] + interval
+    )
     logger.info("Durations: normal=%d slots (%gh), special=%d slots (%gh), "
                 "deficit_per_special=%d, max_extra=%d",
                 normal_dur, cfg["normal_duration_hours"],
                 special_dur, cfg["special_duration_hours"],
                 deficit_per_special, max_extra)
+    logger.info(
+        "Close time: %s (%s)",
+        minutes_to_time_str(close_time_min),
+        "configured" if close_time_cfg else "derived from demand grid",
+    )
 
-    # Start window -> slot indices
-    sw_start_min = time_str_to_minutes(cfg["start_window"][0])
+    # Start windows are bounded by demand opening and close_time-duration.
+    # Demand rows represent start windows, so demand can end before close time.
+    normal_last_start_min = close_time_min - normal_dur * interval
+    special_last_start_min = close_time_min - special_dur * interval
+    if normal_last_start_min < first_slot_min:
+        raise ValueError(
+            "No valid normal-day starts: close_time is earlier than one normal shift."
+        )
+    if special_last_start_min < first_slot_min:
+        raise ValueError(
+            "No valid special-day starts: close_time is earlier than one special shift."
+        )
+
+    # First slot with demand per day-of-week (Mon..Sun)
+    first_demand_slot_by_dow: Dict[int, int] = {}
+    for dow in range(7):
+        for t in range(num_slots):
+            if t < len(demand) and dow < len(demand[t]) and demand[t][dow] > 0:
+                first_demand_slot_by_dow[dow] = t
+                break
+
+    normal_dows = [dow for dow in range(7) if dow not in closed_dows and dow not in special_dows]
+    normal_first_candidates = [
+        first_demand_slot_by_dow[dow]
+        for dow in normal_dows
+        if dow in first_demand_slot_by_dow
+    ]
+
+    # Normal-day first start comes from first slot with demand (fallback to start window when empty).
+    if normal_first_candidates:
+        normal_first_slot = min(normal_first_candidates)
+    else:
+        sw_start_min = time_str_to_minutes(cfg["start_window"][0])
+        normal_first_slot = slot_index(sw_start_min, interval, first_slot_min)
+
+    normal_start_min = slot_to_minutes(normal_first_slot, interval, first_slot_min)
     sw_end_min = time_str_to_minutes(cfg["start_window"][1])
     start_step = cfg.get("start_step") or interval
-    possible_starts_min = list(range(sw_start_min, sw_end_min + 1, start_step))
-    possible_start_slots = [
-        slot_index(m, interval, first_slot_min)
-        for m in possible_starts_min
-    ]
-    # Filter to valid range (start + max possible duration must not exceed last slot + 1)
-    max_dur = normal_dur + max_extra
-    possible_start_slots = [
-        s for s in possible_start_slots
-        if 0 <= s and s + special_dur <= num_slots  # at minimum, special dur must fit
-    ]
+    normal_last_from_close_min = slot_to_minutes(
+        slot_index(normal_last_start_min, interval, first_slot_min), interval, first_slot_min
+    )
+    normal_end_min = min(sw_end_min, normal_last_from_close_min)
+    if normal_start_min > normal_end_min:
+        raise ValueError(
+            "No valid normal-day start positions found. "
+            "Check close_time, start_window, and demand opening."
+        )
+
+    possible_starts_min = list(range(normal_start_min, normal_end_min + 1, start_step))
+    possible_start_slots_set = set()
+    for m in possible_starts_min:
+        s = slot_index(m, interval, first_slot_min)
+        s_min = slot_to_minutes(s, interval, first_slot_min)
+        if (
+            0 <= s
+            and s + normal_dur <= num_slots
+            and s_min >= normal_start_min
+            and s_min <= normal_end_min
+        ):
+            possible_start_slots_set.add(s)
+    possible_start_slots = sorted(possible_start_slots_set)
     if not possible_start_slots:
-        raise ValueError("No valid start positions found. Check start_window and slot range.")
-    logger.info("Start window: %s-%s (step %dmin) → %d possible start slots %s",
-                cfg["start_window"][0], cfg["start_window"][1], start_step,
-                len(possible_start_slots), possible_start_slots)
+        raise ValueError(
+            "No valid normal-day start positions found after applying demand and close_time bounds."
+        )
+    logger.info(
+        "Normal starts: demand-first=%s, last-from-close=%s, window-end=%s, step=%dmin "
+        "→ %d start slots %s",
+        minutes_to_time_str(normal_start_min),
+        minutes_to_time_str(normal_last_from_close_min),
+        cfg["start_window"][1],
+        start_step,
+        len(possible_start_slots),
+        possible_start_slots,
+    )
 
     # Day classification
     def is_closed(d_idx: int) -> bool:
@@ -531,17 +603,17 @@ def build_slot_model(
     logger.debug("Day classification: %d closed, %d special, %d normal (of %d total)",
                  closed_days_count, special_days_count, normal_days_count, num_days)
 
-    # For each special DOW, find the first slot with non-zero demand.
-    # On special days every employee starts at this fixed slot.
+    # For each special DOW, start at first non-zero demand slot and enforce close-time limit.
     special_start_slot_by_dow: Dict[int, int] = {}
+    special_last_slot = slot_index(special_last_start_min, interval, first_slot_min)
     for dow in special_dows:
-        for t in range(num_slots):
-            if t < len(demand) and dow < len(demand[t]) and demand[t][dow] > 0:
-                special_start_slot_by_dow[dow] = t
-                break
-        else:
-            # Fallback: use first possible start slot
-            special_start_slot_by_dow[dow] = possible_start_slots[0]
+        ss = first_demand_slot_by_dow.get(dow, possible_start_slots[0])
+        if ss > special_last_slot:
+            raise ValueError(
+                f"Special day {DAY_NAMES[dow]} has first demand slot after "
+                "latest allowed start (close_time - special_duration)."
+            )
+        special_start_slot_by_dow[dow] = ss
     for dow, ss in special_start_slot_by_dow.items():
         logger.debug("Special day %s: fixed start slot=%d (%s)",
                      DAY_NAMES[dow], ss, minutes_to_time_str(slot_to_minutes(ss, interval, first_slot_min)))
@@ -586,15 +658,14 @@ def build_slot_model(
     logger.debug("Created %d works booleans", len(works))
 
     # extra[e, d] : int – extra compensation slots on normal weekdays
+    skip_comp = cfg.get("skip_compensation", False)
     extra: Dict[Tuple[int, int], cp_model.IntVar] = {}
     for e in range(num_employees):
         for d in range(num_days):
-            if is_weekday_normal(d):
+            if is_weekday_normal(d) and not skip_comp:
                 extra[e, d] = model.new_int_var(0, max_extra, f"ex_{e}_{d}")
-                # extra can only be > 0 if working
                 model.add(extra[e, d] == 0).only_enforce_if(~works[e, d])
             else:
-                # On special / closed days: no extra
                 extra[e, d] = model.new_constant(0)
 
     logger.debug("Created %d extra vars (non-constant)",
@@ -633,16 +704,8 @@ def build_slot_model(
 
     # extra_ge[e, d, k] : boolean – extra[e,d] >= k (for k=1..max_extra)
     extra_ge: Dict[Tuple[int, int, int], cp_model.BoolVarT] = {}
-    for e in range(num_employees):
-        for d in range(num_days):
-            if is_weekday_normal(d):
-                for k in range(1, max_extra + 1):
-                    extra_ge[e, d, k] = model.new_bool_var(f"exge_{e}_{d}_{k}")
-                    model.add(extra[e, d] >= k).only_enforce_if(extra_ge[e, d, k])
-                    model.add(extra[e, d] < k).only_enforce_if(~extra_ge[e, d, k])
+    ws_extra: Dict[Tuple[int, int, int, int], cp_model.BoolVarT] = {}
 
-    # Precompute: for each (slot t, day_type), which start positions provide
-    # base coverage vs. extra coverage
     def _valid_base_starts(t: int, base_dur: int) -> List[int]:
         """Return starts that cover slot t within base duration."""
         return [s for s in possible_start_slots if s <= t < s + base_dur]
@@ -657,29 +720,36 @@ def build_slot_model(
                 result.setdefault(k, []).append(s)
         return result
 
-    # For extra coverage, create ws_extra[e, s, d, k] = ws[e,s,d] AND extra_ge[e,d,k]
-    # Only needed for (s, t) where t is in extra range of start s
-    ws_extra: Dict[Tuple[int, int, int, int], cp_model.BoolVarT] = {}
-    # Track which (e, s, d, k) combos are needed
-    needed_ws_extra: set = set()
-    for t in range(num_slots):
-        extra_s = _valid_extra_starts(t, normal_dur)
-        for k, s_list in extra_s.items():
-            for s in s_list:
-                for e in range(num_employees):
-                    for d in range(num_days):
-                        if is_weekday_normal(d):
-                            needed_ws_extra.add((e, s, d, k))
+    if not skip_comp:
+        for e in range(num_employees):
+            for d in range(num_days):
+                if is_weekday_normal(d):
+                    for k in range(1, max_extra + 1):
+                        extra_ge[e, d, k] = model.new_bool_var(f"exge_{e}_{d}_{k}")
+                        model.add(extra[e, d] >= k).only_enforce_if(extra_ge[e, d, k])
+                        model.add(extra[e, d] < k).only_enforce_if(~extra_ge[e, d, k])
 
-    logger.debug("Created %d extra_ge booleans, %d ws_extra needed",
-                 len(extra_ge), len(needed_ws_extra))
+        needed_ws_extra: set = set()
+        for t in range(num_slots):
+            extra_s = _valid_extra_starts(t, normal_dur)
+            for k, s_list in extra_s.items():
+                for s in s_list:
+                    for e in range(num_employees):
+                        for d in range(num_days):
+                            if is_weekday_normal(d):
+                                needed_ws_extra.add((e, s, d, k))
 
-    for (e, s, d, k) in needed_ws_extra:
-        v = model.new_bool_var(f"wsx_{e}_{s}_{d}_{k}")
-        ws_extra[e, s, d, k] = v
-        model.add(v <= ws[e, s, d])
-        model.add(v <= extra_ge[e, d, k])
-        model.add(v >= ws[e, s, d] + extra_ge[e, d, k] - 1)
+        for (e, s, d, k) in needed_ws_extra:
+            v = model.new_bool_var(f"wsx_{e}_{s}_{d}_{k}")
+            ws_extra[e, s, d, k] = v
+            model.add(v <= ws[e, s, d])
+            model.add(v <= extra_ge[e, d, k])
+            model.add(v >= ws[e, s, d] + extra_ge[e, d, k] - 1)
+
+        logger.debug("Created %d extra_ge booleans, %d ws_extra vars",
+                     len(extra_ge), len(ws_extra))
+    else:
+        logger.debug("Skipped extra_ge/ws_extra creation (no-compensation mode)")
 
     # -- Coverage aggregation & demand constraints --
     coverage_var: Dict[Tuple[int, int], cp_model.IntVar] = {}
@@ -767,71 +837,74 @@ def build_slot_model(
     # -----------------------------------------------------------------------
     weeks = calendar_weeks(dates)
     logger.debug("Calendar has %d weeks", len(weeks))
-    for e in range(num_employees):
-        # Track which weeks' weekdays receive compensation (from previous week's deficit)
-        compensated_weeks: set = set()  # week indices whose weekdays get compensation
 
-        # First pass: set up deficit -> next-week compensation
-        for wi, week_days in enumerate(weeks):
-            special_worked: List[cp_model.BoolVarT] = [
-                works[e, d] for d in week_days if is_special(d)
-            ]
-            if not special_worked:
-                continue
+    if cfg.get("skip_compensation"):
+        logger.info("Hour-compensation DISABLED (--no-compensation)")
+        for e in range(num_employees):
+            for wi, week_days in enumerate(weeks):
+                for d in week_days:
+                    if is_weekday_normal(d) and not isinstance(extra[e, d], int):
+                        model.add(extra[e, d] == 0)
+    else:
+        for e in range(num_employees):
+            compensated_weeks: set = set()
 
-            deficit = model.new_int_var(
-                0, len(special_worked) * deficit_per_special,
-                f"def_{e}_{wi}"
-            )
-            model.add(deficit == deficit_per_special * sum(special_worked))
+            for wi, week_days in enumerate(weeks):
+                special_worked: List[cp_model.BoolVarT] = [
+                    works[e, d] for d in week_days if is_special(d)
+                ]
+                if not special_worked:
+                    continue
 
-            next_wi = wi + 1
-            if next_wi < len(weeks):
-                next_weekdays = [d for d in weeks[next_wi] if is_weekday_normal(d)]
-                if next_weekdays:
-                    compensated_weeks.add(next_wi)
-                    comp_terms = [
-                        extra[e, d] for d in next_weekdays
-                        if not isinstance(extra[e, d], int)
-                    ]
-                    if comp_terms:
-                        max_cap = len(comp_terms) * max_extra
-                        if cfg["compensation_carry"] == "allow_partial":
-                            capped = model.new_int_var(
-                                0,
-                                min(max_cap, len(special_worked) * deficit_per_special),
-                                f"cap_{e}_{wi}",
-                            )
-                            model.add_min_equality(
-                                capped,
-                                [deficit, model.new_constant(max_cap)],
-                            )
-                            model.add(sum(comp_terms) == capped)
-                        else:
-                            model.add(sum(comp_terms) == deficit)
-                    # else: no valid extra vars, deficit must be 0
+                deficit = model.new_int_var(
+                    0, len(special_worked) * deficit_per_special,
+                    f"def_{e}_{wi}"
+                )
+                model.add(deficit == deficit_per_special * sum(special_worked))
+
+                next_wi = wi + 1
+                if next_wi < len(weeks):
+                    next_weekdays = [d for d in weeks[next_wi] if is_weekday_normal(d)]
+                    if next_weekdays:
+                        compensated_weeks.add(next_wi)
+                        comp_terms = [
+                            extra[e, d] for d in next_weekdays
+                            if not isinstance(extra[e, d], int)
+                        ]
+                        if comp_terms:
+                            max_cap = len(comp_terms) * max_extra
+                            if cfg["compensation_carry"] == "allow_partial":
+                                capped = model.new_int_var(
+                                    0,
+                                    min(max_cap, len(special_worked) * deficit_per_special),
+                                    f"cap_{e}_{wi}",
+                                )
+                                model.add_min_equality(
+                                    capped,
+                                    [deficit, model.new_constant(max_cap)],
+                                )
+                                model.add(sum(comp_terms) == capped)
+                            else:
+                                model.add(sum(comp_terms) == deficit)
+                    else:
+                        if cfg["compensation_carry"] != "allow_partial":
+                            for d in week_days:
+                                if is_special(d):
+                                    model.add(works[e, d] == 0)
                 else:
-                    if cfg["compensation_carry"] != "allow_partial":
+                    if cfg["compensation_carry"] == "forbid_special_last_week":
                         for d in week_days:
                             if is_special(d):
                                 model.add(works[e, d] == 0)
-            else:
-                # Last week of month
-                if cfg["compensation_carry"] == "forbid_special_last_week":
-                    for d in week_days:
-                        if is_special(d):
-                            model.add(works[e, d] == 0)
 
-        # Second pass: zero out extras for weeks NOT receiving compensation
-        for wi, week_days in enumerate(weeks):
-            if wi in compensated_weeks:
-                continue
-            # Also skip if this is week 0 and we have previous_schedule compensation
-            if wi == 0 and cfg.get("previous_schedule") is not None:
-                continue
-            for d in week_days:
-                if is_weekday_normal(d) and not isinstance(extra[e, d], int):
-                    model.add(extra[e, d] == 0)
+            for wi, week_days in enumerate(weeks):
+                if wi in compensated_weeks:
+                    continue
+                if wi == 0 and cfg.get("previous_schedule") is not None:
+                    continue
+                for d in week_days:
+                    if is_weekday_normal(d) and not isinstance(extra[e, d], int):
+                        model.add(extra[e, d] == 0)
 
     # -----------------------------------------------------------------------
     # Constraints carried from old optimizer
@@ -1087,6 +1160,32 @@ def build_slot_model(
         else:
             logger.debug("Demand-proportional spread: skipped, <2 active days")
 
+    # --- Exact work days (optional hard constraint) ---
+    exact_wd = cfg.get("exact_work_days")
+    if exact_wd is not None:
+        if exact_wd < 0:
+            raise ValueError("exact_work_days must be >= 0")
+        exact_scope = cfg.get("exact_work_days_scope", "primary")
+        if exact_scope == "full":
+            day_range = range(num_days)
+            scope_label = "full period"
+        else:
+            day_range = range(primary_start, primary_end)
+            scope_label = "primary month"
+        non_closed_days = [d for d in day_range if not is_closed(d)]
+        if exact_wd > len(non_closed_days):
+            raise ValueError(
+                f"exact_work_days={exact_wd} exceeds available non-closed days "
+                f"({len(non_closed_days)}) in {scope_label}."
+            )
+        for e in range(num_employees):
+            model.add(sum(works[e, d] for d in non_closed_days) == exact_wd)
+        logger.info(
+            "Exact work days hard constraint enabled: %d days per employee (%s)",
+            exact_wd,
+            scope_label,
+        )
+
     # --- Min work days per month (primary month days only) ---
     mwd = cfg.get("min_work_days_per_month", 0)
     mwd_pen = cfg.get("min_work_days_penalty", 0)
@@ -1128,6 +1227,25 @@ def build_slot_model(
             model.add_abs_equality(diff, pos)
             obj_int_vars.append(diff)
             obj_int_coeffs.append(psp)
+
+    # --- Start-time spread: avoid packing employees at the same start ---
+    start_spread_pen = cfg.get("start_spread_penalty", 0)
+
+    if start_spread_pen > 0:
+        for s in possible_start_slots:
+            count_at_s = model.new_int_var(0, num_employees, f"cnt_s{s}")
+            model.add(count_at_s == sum(starts_at[e, s] for e in range(num_employees)))
+
+            ideal = num_employees // len(possible_start_slots)
+            dev = model.new_int_var(0, num_employees, f"sdev_{s}")
+            diff_raw = model.new_int_var(-num_employees, num_employees, f"sdraw_{s}")
+            model.add(diff_raw == count_at_s - ideal)
+            model.add_abs_equality(dev, diff_raw)
+            obj_int_vars.append(dev)
+            obj_int_coeffs.append(start_spread_pen)
+
+        logger.info("Start spread: penalty=%d per deviation from ideal=%d per slot",
+                    start_spread_pen, num_employees // len(possible_start_slots))
 
     # --- Stability penalty (previous schedule) ---
     stab = cfg.get("stability_penalty", 0)
@@ -1173,32 +1291,46 @@ def build_slot_model(
     else:
         model.minimize(0)
     # =======================================================================
-    # ITEM 2: INSERT SEARCH STRATEGIES HERE
+    # ITEM 2: SEARCH STRATEGIES (configurable via CLI)
     # =======================================================================
-    
-    # Strategy 1: Decide Start Times First (Macro Decision)
-    # This is the most critical decision. If we fix this, the rest is just filling slots.
-    # We choose MIN_VALUE to pack starts as early as possible (or just to be deterministic).
-    model.add_decision_strategy(
-        [start_val[e] for e in range(num_employees)],
-        cp_model.CHOOSE_FIRST,
-        cp_model.SELECT_MIN_VALUE
-    )
+    if not cfg.get("no_search_strategy", False):
+        _var_map = {
+            "CHOOSE_FIRST": cp_model.CHOOSE_FIRST,
+            "CHOOSE_LOWEST_MIN": cp_model.CHOOSE_LOWEST_MIN,
+            "CHOOSE_HIGHEST_MAX": cp_model.CHOOSE_HIGHEST_MAX,
+            "CHOOSE_MIN_DOMAIN_SIZE": cp_model.CHOOSE_MIN_DOMAIN_SIZE,
+            "CHOOSE_MAX_DOMAIN_SIZE": cp_model.CHOOSE_MAX_DOMAIN_SIZE,
+        }
+        _val_map = {
+            "SELECT_MIN_VALUE": cp_model.SELECT_MIN_VALUE,
+            "SELECT_MAX_VALUE": cp_model.SELECT_MAX_VALUE,
+            "SELECT_LOWER_HALF": cp_model.SELECT_LOWER_HALF,
+            "SELECT_UPPER_HALF": cp_model.SELECT_UPPER_HALF,
+            "SELECT_MEDIAN_VALUE": cp_model.SELECT_MEDIAN_VALUE,
+        }
 
-    # Strategy 2: Decide Working Days (Micro Decision)
-    # We organize variables day-by-day. This helps the solver fill Day 1 completely
-    # before struggling with Day 2.
-    # We choose MAX_VALUE to try setting works=1 (True) first to satisfy demand.
-    all_works_vars = []
-    for d in range(num_days):
-        for e in range(num_employees):
-            all_works_vars.append(works[e, d])
+        s_var = _var_map[cfg.get("start_var_strategy", "CHOOSE_FIRST")]
+        s_val = _val_map[cfg.get("start_val_strategy", "SELECT_MIN_VALUE")]
+        w_var = _var_map[cfg.get("works_var_strategy", "CHOOSE_FIRST")]
+        w_val = _val_map[cfg.get("works_val_strategy", "SELECT_MAX_VALUE")]
 
-    model.add_decision_strategy(
-        all_works_vars,
-        cp_model.CHOOSE_FIRST,
-        cp_model.SELECT_MAX_VALUE
-    )
+        model.add_decision_strategy(
+            [start_val[e] for e in range(num_employees)], s_var, s_val
+        )
+
+        all_works_vars = []
+        for d in range(num_days):
+            for e in range(num_employees):
+                all_works_vars.append(works[e, d])
+        model.add_decision_strategy(all_works_vars, w_var, w_val)
+
+        logger.info("Search strategy: starts=%s/%s, works=%s/%s",
+                     cfg.get("start_var_strategy", "CHOOSE_FIRST"),
+                     cfg.get("start_val_strategy", "SELECT_MIN_VALUE"),
+                     cfg.get("works_var_strategy", "CHOOSE_FIRST"),
+                     cfg.get("works_val_strategy", "SELECT_MAX_VALUE"))
+    else:
+        logger.info("Search strategy: NONE (letting CP-SAT decide)")
     
     logger.info("Model built successfully.")
 
@@ -1232,10 +1364,10 @@ def solve_once(
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = cfg.get("solver_time_limit", 10)
-    solver.parameters.linearization_level = 0   # Disable expensive linearization to speed up node exploration
+    solver.parameters.linearization_level = 1   # Disable expensive linearization to speed up node exploration
     solver.parameters.num_workers = 8           # parallel search
-    solver.parameters.symmetry_level = 2        # Aggressive symmetry detection
-    solver.parameters.cp_model_probing_level = 2 # Enable probing to learn logical implications (e.g. if work Mon -> must work Tue)
+    solver.parameters.symmetry_level = 1        # Aggressive symmetry detection
+    solver.parameters.cp_model_probing_level = 1 # Enable probing to learn logical implications (e.g. if work Mon -> must work Tue)
 
     if cfg.get("solver_log", False):
         solver.parameters.log_search_progress = True
@@ -1322,8 +1454,8 @@ def solve_with_roster_search(
 def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
     """Extract human-readable solution from a solved result dict.
 
-    Only primary month days (excluding week-padding days) are included in the
-    output schedule and coverage tables.
+    By default only primary month days are included in output schedule/coverage.
+    If cfg["show_full_period"] is True, include the full padded calendar horizon.
     """
     solver = result["solver"]
     variables = result["variables"]
@@ -1352,7 +1484,16 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
     special_dur = int(cfg["special_duration_hours"] * 60 / interval)
     special_start_slot_by_dow = variables["special_start_slot_by_dow"]
 
-    logger.info("Extracting solution (primary days %d..%d) …", primary_start, primary_end)
+    show_full_period = cfg.get("show_full_period", False)
+    out_start = 0 if show_full_period else primary_start
+    out_end = num_days if show_full_period else primary_end
+    out_num_days = out_end - out_start
+    logger.info(
+        "Extracting solution (%s days %d..%d) …",
+        "full-period" if show_full_period else "primary",
+        out_start,
+        out_end,
+    )
     employees = []
     for e in range(num_employees):
         start_slot = solver.value(variables["start_val"][e])
@@ -1361,7 +1502,7 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
         logger.debug("  Employee %s: start_slot=%d (%s)", roster[e]["id"], start_slot, start_time)
 
         schedule = []
-        for d in range(primary_start, primary_end):
+        for d in range(out_start, out_end):
             if solver.boolean_value(variables["works"][e, d]):
                 is_spec = dates[d].weekday() in special_dows
                 base_dur = special_dur if is_spec else normal_dur
@@ -1406,11 +1547,11 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
             "schedule": schedule,
         })
 
-    # Coverage vs demand (primary month days only)
+    # Coverage vs demand for selected output period
     coverage_table = []
     total_understaff = 0
     total_overstaff = 0
-    for d in range(primary_start, primary_end):
+    for d in range(out_start, out_end):
         dow = dates[d].weekday()
         day_row = {"date": dates[d].isoformat(), "day": DAY_NAMES[dow], "slots": []}
         for t in range(num_slots):
@@ -1429,7 +1570,7 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
             })
         coverage_table.append(day_row)
 
-    work_days = {e: sum(1 for d in range(primary_start, primary_end)
+    work_days = {e: sum(1 for d in range(out_start, out_end)
                         if solver.boolean_value(variables["works"][e, d]))
                  for e in range(num_employees)}
 
@@ -1443,11 +1584,12 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
         "coverage": coverage_table,
         "summary": {
             "num_employees": num_employees,
-            "num_days": num_primary,
+            "num_days": out_num_days,
             "total_understaff": total_understaff,
             "total_overstaff": total_overstaff,
             "objective": result["objective"],
             "status": solver.status_name(result["status"]),
+            "period_scope": "full" if show_full_period else "primary",
             "work_days_per_employee": {
                 roster[e]["id"]: work_days[e] for e in range(num_employees)
             },
@@ -1459,7 +1601,11 @@ def print_schedule(solution: Dict[str, Any]) -> None:
     """Pretty-print the schedule to stdout."""
     summary = solution["summary"]
     print("=" * 80)
-    print(f"SCHEDULE  |  {summary['num_employees']} employees  |  {summary['num_days']} days")
+    scope = summary.get("period_scope", "primary")
+    print(
+        f"SCHEDULE  |  {summary['num_employees']} employees  |  "
+        f"{summary['num_days']} days ({scope})"
+    )
     print(f"Status: {summary['status']}  |  Objective: {summary['objective']}")
     print(f"Total understaff: {summary['total_understaff']}  |  Total overstaff: {summary['total_overstaff']}")
     print("=" * 80)
@@ -1483,6 +1629,45 @@ def print_schedule(solution: Dict[str, Any]) -> None:
     print("WORK DAYS PER EMPLOYEE:")
     for eid, wdays in summary["work_days_per_employee"].items():
         print(f"  {eid}: {wdays}")
+    _print_sunday_distribution(solution)
+
+
+def _print_sunday_distribution(solution: Dict[str, Any]) -> None:
+    """Print Sunday work/off distribution by date and employee."""
+    employees = solution.get("employees", [])
+    if not employees:
+        return
+
+    all_days = employees[0].get("schedule", [])
+    sunday_indices = [i for i, day in enumerate(all_days) if day.get("day") == "sunday"]
+    if not sunday_indices:
+        return
+
+    print("\n" + "=" * 80)
+    print("SUNDAY DISTRIBUTION")
+    print("=" * 80)
+    print(f"  {'Date':<12} {'Working':>8} {'Off':>6}")
+
+    for idx in sunday_indices:
+        date_str = all_days[idx].get("date", "")
+        working = 0
+        for emp in employees:
+            sched = emp.get("schedule", [])
+            if idx < len(sched) and sched[idx].get("status") == "work":
+                working += 1
+        off = len(employees) - working
+        print(f"  {date_str:<12} {working:>8} {off:>6}")
+
+    print("\n  Per Employee (worked/off Sundays):")
+    total_sundays = len(sunday_indices)
+    for emp in employees:
+        sched = emp.get("schedule", [])
+        worked = 0
+        for idx in sunday_indices:
+            if idx < len(sched) and sched[idx].get("status") == "work":
+                worked += 1
+        gender = emp.get("gender", "?")
+        print(f"  {emp['id']} ({gender}): {worked}/{total_sundays} (off={total_sundays - worked})")
 
 
 def print_compact_schedule(solution: Dict[str, Any]) -> None:
@@ -1701,6 +1886,8 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--slot-interval", type=int, default=20)
     p.add_argument("--normal-duration-hours", type=float, default=8)
     p.add_argument("--special-duration-hours", type=float, default=6)
+    p.add_argument("--close-time", type=str, default=None,
+                    help="Store closing time HH:MM. If omitted, derive from demand end.")
     p.add_argument("--start-window", nargs=2, default=["10:00", "14:00"],
                     metavar=("START", "END"))
     p.add_argument("--start-step", type=int, default=None,
@@ -1711,6 +1898,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--compensation-carry",
                     choices=["allow_partial", "forbid_special_last_week", "carry_forward"],
                     default="allow_partial")
+    p.add_argument("--no-compensation", dest="skip_compensation",
+                    action="store_true", default=False,
+                    help="Disable weekly hour-compensation for special-day deficits")
     p.add_argument("--solver-time-limit", type=float, default=10)
 
     p.add_argument("--relax-cover", action="store_true", default=True)
@@ -1733,6 +1923,10 @@ def build_cli_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--min-work-days-per-month", type=int, default=20)
     p.add_argument("--min-work-days-penalty", type=int, default=10)
+    p.add_argument("--exact-work-days", type=int, default=None,
+                    help="Hard constraint: each employee must work exactly this many days")
+    p.add_argument("--exact-work-days-scope", choices=["primary", "full"], default="primary",
+                    help="Scope for --exact-work-days: primary month or full padded period")
 
     # Tier 3
     p.add_argument("--closed-days", type=int, nargs="*", default=None,
@@ -1751,6 +1945,29 @@ def build_cli_parser() -> argparse.ArgumentParser:
                     help="Min roster size for roster search")
     p.add_argument("--max-employees", type=int, default=None,
                     help="Max roster size for roster search")
+    _VAR_CHOICES = ["CHOOSE_FIRST", "CHOOSE_LOWEST_MIN", "CHOOSE_HIGHEST_MAX",
+                     "CHOOSE_MIN_DOMAIN_SIZE", "CHOOSE_MAX_DOMAIN_SIZE"]
+    _VAL_CHOICES = ["SELECT_MIN_VALUE", "SELECT_MAX_VALUE",
+                     "SELECT_LOWER_HALF", "SELECT_UPPER_HALF", "SELECT_MEDIAN_VALUE"]
+    p.add_argument("--start-var-strategy", choices=_VAR_CHOICES,
+                    default="CHOOSE_FIRST",
+                    help="Variable selection for start-time decisions (default: CHOOSE_FIRST)")
+    p.add_argument("--start-val-strategy", choices=_VAL_CHOICES,
+                    default="SELECT_MIN_VALUE",
+                    help="Value selection for start-time decisions (default: SELECT_MIN_VALUE)")
+    p.add_argument("--works-var-strategy", choices=_VAR_CHOICES,
+                    default="CHOOSE_FIRST",
+                    help="Variable selection for work-day decisions (default: CHOOSE_FIRST)")
+    p.add_argument("--works-val-strategy", choices=_VAL_CHOICES,
+                    default="SELECT_MAX_VALUE",
+                    help="Value selection for work-day decisions (default: SELECT_MAX_VALUE)")
+    p.add_argument("--no-search-strategy", action="store_true", default=False,
+                    help="Disable custom search strategies entirely; let CP-SAT decide")
+
+    p.add_argument("--start-spread-penalty", type=float, default=0,
+                    help="Soft penalty per employee deviating from uniform start-time distribution. "
+                         "Higher values push employees toward diverse starts (default: 0)")
+
     p.add_argument("--demand-spread-penalty", type=float, default=0,
                     help="Penalty for deviation from demand-proportional daily staffing. "
                          "Higher-demand days get proportionally more staff. "
@@ -1758,6 +1975,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--special-day-demand-weight", type=float, default=1.0,
                     help="Multiplier on special-day demand weights for proportional "
                          "staffing (e.g. 1.5 = treat special days as 50%% more demanding)")
+    p.add_argument("--sequence-constraint", type=int, nargs=6, action="append",
+                    default=None, dest="sequence_constraints",
+                    metavar=("HARD_MIN", "SOFT_MIN", "MIN_COST",
+                             "SOFT_MAX", "HARD_MAX", "MAX_COST"),
+                    help="Constraint on consecutive work-day span lengths. "
+                         "Can be repeated. Example: --sequence-constraint 3 3 0 6 6 0")
 
     # Logging
     p.add_argument("--verbose", "-v", action="count", default=0,
@@ -1778,6 +2001,8 @@ def build_cli_parser() -> argparse.ArgumentParser:
                     action="store_false")
     p.add_argument("--show-coverage-detail", action="store_true", default=False,
                     help="Print per-day coverage vs demand detail")
+    p.add_argument("--show-full-period", action="store_true", default=False,
+                    help="Show full padded calendar horizon in output (not only month days)")
 
     return p
 
@@ -1808,6 +2033,7 @@ def main() -> None:
     args = parser.parse_args()
 
     _configure_logging(args.verbose)
+    print(f"Command: {shlex.join(sys.argv)}")
 
     # Build config
     cfg = _merge_config({
@@ -1816,6 +2042,7 @@ def main() -> None:
         "slot_interval": args.slot_interval,
         "normal_duration_hours": args.normal_duration_hours,
         "special_duration_hours": args.special_duration_hours,
+        "close_time": args.close_time,
         "start_window": tuple(args.start_window),
         "start_step": args.start_step,
         "store_type": args.store_type,
@@ -1835,6 +2062,8 @@ def main() -> None:
         "spread_sunday_shifts_penalty": args.spread_sunday_shifts_penalty,
         "min_work_days_per_month": args.min_work_days_per_month,
         "min_work_days_penalty": args.min_work_days_penalty,
+        "exact_work_days": args.exact_work_days,
+        "exact_work_days_scope": args.exact_work_days_scope,
         "closed_days": args.closed_days,
         "special_days": args.special_days,
         "quadratic_excess_penalty": args.quadratic_excess_penalty,
@@ -1850,6 +2079,15 @@ def main() -> None:
         "solver_log": args.solver_log,
         "demand_spread_penalty": args.demand_spread_penalty,
         "special_day_demand_weight": args.special_day_demand_weight,
+        "skip_compensation": args.skip_compensation,
+        "sequence_constraints": args.sequence_constraints or [],
+        "start_var_strategy": args.start_var_strategy,
+        "start_val_strategy": args.start_val_strategy,
+        "works_var_strategy": args.works_var_strategy,
+        "works_val_strategy": args.works_val_strategy,
+        "no_search_strategy": args.no_search_strategy,
+        "start_spread_penalty": args.start_spread_penalty,
+        "show_full_period": args.show_full_period,
     })
 
     # Load inputs
@@ -1880,8 +2118,12 @@ def main() -> None:
     print(f"  Closed days: {[DAY_NAMES[d] for d in cd]}")
     print(f"  Special days: {[DAY_NAMES[d] for d in sd]}")
     print(f"  Start window: {cfg['start_window'][0]} - {cfg['start_window'][1]}")
+    close_time_display = cfg["close_time"] or f"{minutes_to_time_str(slot_minutes[-1] + cfg['slot_interval'])} (derived)"
+    print(f"  Close time: {close_time_display}")
     print(f"  Normal shift: {cfg['normal_duration_hours']}h, "
           f"Special shift: {cfg['special_duration_hours']}h")
+    if cfg.get("exact_work_days") is not None:
+        print(f"  Exact work days: {cfg['exact_work_days']} ({cfg.get('exact_work_days_scope', 'primary')})")
 
     # Solve
     do_search = cfg.get("min_employees") is not None and cfg.get("max_employees") is not None

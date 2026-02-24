@@ -1,0 +1,19 @@
+21:08:56  slot_optimizer  WARNING   No feasible solution found (status=INFEASIBLE)
+21:08:56  slot_optimizer  WARNING   No feasible schedule found between 21 and 21 employees.
+Command: slot_optimizer.py --demand test_data/demand_sample_hour_barra.csv --roster test_data/roster_barra_males.json --year 2025 --month 3 --close-time 22:00 --store-type mall --solver-time-limit 600 --no-relax-cover --min-employees 21 --max-employees 21 --start-step 60 --start-window 10:00 15:00 --normal-duration-hours 8 --special-duration-hours 7 --max-shifts-per-week 5 --min-days-off-per-week 2 --max-consecutive-work-days 5 --sequence-constraint 2 2 0 6 6 0 --no-compensation
+Loading demand from test_data/demand_sample_hour_barra.csv ...
+  Warning: detected interval 60 min differs from configured 20 min. Using detected.
+Loading roster from test_data/roster_barra_males.json ...
+  25 employees loaded.
+Scheduling 2025-03 (31 month days, 42 total with week padding, 13 slots/day, interval=60min)
+  Store type: mall
+  Closed days: []
+  Special days: ['sunday']
+  Start window: 10:00 - 15:00
+  Close time: 22:00
+  Normal shift: 8.0h, Special shift: 7.0h
+
+Searching roster sizes 21..21 ...
+No feasible schedule found between 21 and 21 employees.
+
+No feasible solution found. Status: INFEASIBLE

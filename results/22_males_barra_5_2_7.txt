@@ -1,0 +1,1660 @@
+
+Starting CP-SAT solver v9.15.6755
+Parameters: max_time_in_seconds: 600 log_search_progress: true linearization_level: 1 cp_model_probing_level: 1 symmetry_level: 1 num_workers: 8
+
+Initial optimization model '': (model_fingerprint: 0xf67d0370b274b82d)
+Search strategy: on 22 variables, CHOOSE_MIN_DOMAIN_SIZE, SELECT_MIN_VALUE
+Search strategy: on 924 variables, CHOOSE_FIRST, SELECT_MAX_VALUE
+#Variables: 7'066 (#ints: 526 in objective) (6'149 primary variables)
+  - 5'961 Booleans in [0,1]
+  - 6 in [-22,22]
+  - 30 in [0,3]
+  - 12 in [0,4]
+  - 43 in [0,5]
+  - 30 in [0,6]
+  - 42 in [0,7]
+  - 78 in [0,8]
+  - 30 in [0,9]
+  - 60 in [0,10]
+  - 60 in [0,11]
+  - 66 in [0,12]
+  - 18 in [0,13]
+  - 24 in [0,14]
+  - 6 in [0,15]
+  - 486 in [0,22]
+  - 22 in [0,30]
+  - 69 in [0,31]
+  - 22 in [1,6]
+  - 1 constants in {0} 
+#kBoolOr: 3'366 (#literals: 17'248)
+#kExactlyOne: 22 (#literals: 132)
+#kLinMax: 10 (#expressions: 100)
+#kLinear1: 792
+#kLinear2: 10'201 (#enforced: 42)
+#kLinear3: 4'754
+#kLinearN: 897 (#enforced: 21) (#terms: 40'920)
+
+Starting presolve at 0.02s
+  7.80e-03s  0.00e+00d  [DetectDominanceRelations] 
+  8.85e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=2 #num_dual_strengthening=1 
+  1.33e-03s  0.00e+00d  [ExtractEncodingFromLinear] #potential_supersets=22 #potential_subsets=432 #exo_encodings=22 #unique_terms=132 #literals=132 
+  2.96e-03s  0.00e+00d  [DetectDuplicateColumns] 
+  2.01e-03s  0.00e+00d  [DetectDuplicateConstraints] #duplicates=1'056 
+[Symmetry] Graph for symmetry has 27'720 nodes and 96'929 arcs.
+[Symmetry] Symmetry computation done. time: 0.0185057 dtime: 0.0369643
+[Symmetry] #generators: 12, average support size: 2
+[Symmetry] 6 orbits on 18 variables with sizes: 3,3,3,3,3,3
+[Symmetry] Found orbitope of size 1 x 3
+[SAT presolve] num removable Booleans: 0 / 5'829
+[SAT presolve] num trivial clauses: 0
+[SAT presolve] [0s] clauses:16'852 literals:45'078 vars:5'808 one_side_vars:0 simple_definition:4'752 singleton_clauses:0
+[SAT presolve] [0.00157728s] clauses:16'786 literals:43'934 vars:5'808 one_side_vars:0 simple_definition:4'774 singleton_clauses:0
+[SAT presolve] [0.00192224s] clauses:16'786 literals:43'934 vars:5'808 one_side_vars:0 simple_definition:4'774 singleton_clauses:0
+  1.44e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  2.89e+00s  1.00e+00d *[Probe] #probed=6'486 #new_binary_clauses=3'777 
+  9.19e-02s  4.49e-01d  [MaxClique] Merged 9'592 constraints with 19'184 literals into 5'632 constraints with 15'224 literals
+  6.53e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.61e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  7.95e-03s  0.00e+00d  [ProcessAtMostOneAndLinear] 
+  1.39e-03s  0.00e+00d  [DetectDuplicateConstraints] 
+  1.39e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  1.82e-03s  2.30e-04d  [DetectDominatedLinearConstraints] #relevant_constraints=950 
+  6.61e-04s  0.00e+00d  [DetectDifferentVariables] 
+  5.83e-03s  5.33e-04d  [ProcessSetPPC] #relevant_constraints=13'667 #num_inclusions=7'584 
+  3.81e-03s  7.07e-04d  [TransformClausesToExactlyOne] #num_amos=5'632 #num_clauses=7'446 #num_checked=7'446 
+  1.61e-03s  0.00e+00d  [DetectEncodedComplexDomains] 
+  1.29e-03s  6.75e-05d  [FindAlmostIdenticalLinearConstraints] #num_tested_pairs=121 #found=36 
+  1.46e-02s  2.88e-02d  [FindBigAtMostOneAndLinearOverlap] 
+  4.06e-03s  1.44e-02d  [FindBigVerticalLinearOverlap] #blocks=5 #saved_nz=620 
+  3.11e-03s  3.32e-03d  [FindBigHorizontalLinearOverlap] #blocks=36 #saved_nz=6'948 #linears=501 
+  2.26e-03s  1.28e-04d  [MergeClauses] #num_collisions=132 #num_merges=132 #num_saved_literals=616 
+  6.19e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.34e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=2 #num_dual_strengthening=1 
+  6.23e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.16e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  1.30e-03s  0.00e+00d  [DetectDuplicateColumns] 
+  1.45e-03s  0.00e+00d  [DetectDuplicateConstraints] 
+[Symmetry] Graph for symmetry has 27'870 nodes and 78'869 arcs.
+[Symmetry] Symmetry computation done. time: 0.0124208 dtime: 0.0290864
+[Symmetry] #generators: 12, average support size: 2
+[Symmetry] 6 orbits on 18 variables with sizes: 3,3,3,3,3,3
+[Symmetry] Found orbitope of size 1 x 3
+[SAT presolve] num removable Booleans: 0 / 5'829
+[SAT presolve] num trivial clauses: 0
+[SAT presolve] [0s] clauses:12'286 literals:35'186 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+[SAT presolve] [0.000980386s] clauses:12'286 literals:35'186 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+[SAT presolve] [0.00132077s] clauses:12'286 literals:35'186 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+  1.47e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  1.69e+00s  1.00e+00d *[Probe] #probed=9'638 #new_binary_clauses=3'819 
+  6.48e-02s  2.99e-01d  [MaxClique] 
+  6.78e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.46e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  6.55e-03s  0.00e+00d  [ProcessAtMostOneAndLinear] 
+  1.51e-03s  0.00e+00d  [DetectDuplicateConstraints] 
+  1.44e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  1.60e-03s  1.12e-04d  [DetectDominatedLinearConstraints] #relevant_constraints=955 
+  6.73e-04s  0.00e+00d  [DetectDifferentVariables] 
+  5.64e-03s  4.86e-04d  [ProcessSetPPC] #relevant_constraints=13'595 #num_inclusions=7'584 
+  6.03e-03s  1.91e-03d  [TransformClausesToExactlyOne] #num_amos=5'674 #num_clauses=7'404 #num_checked=7'404 
+  1.65e-03s  0.00e+00d  [DetectEncodedComplexDomains] 
+  7.96e-04s  3.38e-05d  [FindAlmostIdenticalLinearConstraints] #num_tested_pairs=113 
+  9.56e-03s  1.57e-02d  [FindBigAtMostOneAndLinearOverlap] 
+  2.92e-03s  7.86e-03d  [FindBigVerticalLinearOverlap] 
+  6.73e-04s  1.28e-04d  [FindBigHorizontalLinearOverlap] #linears=537 
+  2.35e-03s  1.27e-04d  [MergeClauses] #num_collisions=132 #num_merges=132 #num_saved_literals=616 
+  6.57e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.20e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  6.60e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.20e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  1.42e-03s  0.00e+00d  [DetectDuplicateColumns] 
+  1.48e-03s  0.00e+00d  [DetectDuplicateConstraints] 
+[Symmetry] Graph for symmetry has 27'828 nodes and 78'827 arcs.
+[Symmetry] Symmetry computation done. time: 0.010414 dtime: 0.0226815
+[Symmetry] #generators: 12, average support size: 2
+[Symmetry] 6 orbits on 18 variables with sizes: 3,3,3,3,3,3
+[Symmetry] Found orbitope of size 1 x 3
+[SAT presolve] num removable Booleans: 0 / 5'829
+[SAT presolve] num trivial clauses: 0
+[SAT presolve] [0s] clauses:12'286 literals:35'144 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+[SAT presolve] [0.000856673s] clauses:12'286 literals:35'144 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+[SAT presolve] [0.00115438s] clauses:12'286 literals:35'144 vars:5'829 one_side_vars:21 simple_definition:4'796 singleton_clauses:0
+  1.78e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  1.71e+00s  1.00e+00d *[Probe] #probed=9'724 #new_binary_clauses=2'439 
+  7.04e-02s  2.89e-01d  [MaxClique] 
+  6.84e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.41e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  6.34e-03s  0.00e+00d  [ProcessAtMostOneAndLinear] 
+  1.68e-03s  0.00e+00d  [DetectDuplicateConstraints] 
+  1.64e-03s  0.00e+00d  [DetectDuplicateConstraintsWithDifferentEnforcements] 
+  1.75e-03s  1.12e-04d  [DetectDominatedLinearConstraints] #relevant_constraints=955 
+  9.29e-04s  0.00e+00d  [DetectDifferentVariables] 
+  5.91e-03s  4.87e-04d  [ProcessSetPPC] #relevant_constraints=13'637 #num_inclusions=7'626 
+  6.24e-03s  1.91e-03d  [TransformClausesToExactlyOne] #num_amos=5'674 #num_clauses=7'404 #num_checked=7'404 
+  1.71e-03s  0.00e+00d  [DetectEncodedComplexDomains] 
+  8.92e-04s  3.47e-05d  [FindAlmostIdenticalLinearConstraints] #num_tested_pairs=115 
+  9.77e-03s  1.57e-02d  [FindBigAtMostOneAndLinearOverlap] 
+  2.99e-03s  7.86e-03d  [FindBigVerticalLinearOverlap] 
+  7.98e-04s  1.28e-04d  [FindBigHorizontalLinearOverlap] #linears=537 
+  2.45e-03s  1.27e-04d  [MergeClauses] #num_collisions=132 #num_merges=132 #num_saved_literals=616 
+  7.32e-03s  0.00e+00d  [DetectDominanceRelations] 
+  2.39e-02s  0.00e+00d  [PresolveToFixPoint] #num_loops=1 #num_dual_strengthening=1 
+  5.22e-04s  0.00e+00d  [MergeNoOverlap] 
+  5.22e-04s  0.00e+00d  [MergeNoOverlap2D] 
+  2.47e-03s  0.00e+00d  [ExpandObjective] #entries=29'164 #tight_variables=752 #tight_constraints=439 
+
+Presolve summary:
+  - 174 affine relations were detected.
+  - rule 'TODO dual: only one blocking constraint?' was applied 7'559 times.
+  - rule 'TODO dual: only one blocking enforced constraint?' was applied 189 times.
+  - rule 'TODO dual: only one unspecified blocking constraint?' was applied 4'464 times.
+  - rule 'affine: new relation' was applied 174 times.
+  - rule 'at_most_one: transformed into max clique' was applied 1 time.
+  - rule 'bool_or: implications' was applied 9'590 times.
+  - rule 'bool_or: removed enforcement literal' was applied 252 times.
+  - rule 'deductions: 306 stored' was applied 1 time.
+  - rule 'duplicate: removed constraint' was applied 1'056 times.
+  - rule 'encoding: extracted from linear' was applied 22 times.
+  - rule 'lin_max: affine_max target domain reduced' was applied 6 times.
+  - rule 'linear matrix: common horizontal rectangle' was applied 36 times.
+  - rule 'linear matrix: common vertical rectangle' was applied 5 times.
+  - rule 'linear2: convert ax + by != cte to clauses' was applied 9'504 times.
+  - rule 'linear2: convert implied ax + by == cte to clauses' was applied 21 times.
+  - rule 'linear: advanced affine relation from 2 constraints' was applied 36 times.
+  - rule 'linear: always true' was applied 792 times.
+  - rule 'linear: negative clause' was applied 5'038 times.
+  - rule 'linear: reduced variable domains' was applied 6 times.
+  - rule 'linear: remapped using affine relations' was applied 120 times.
+  - rule 'linear: variable substitution 0' was applied 22 times.
+  - rule 'linear: variable substitution 1' was applied 136 times.
+  - rule 'presolve: 1 unused variables removed.' was applied 1 time.
+  - rule 'presolve: iteration' was applied 3 times.
+  - rule 'probing: bool_or reduced to implication' was applied 42 times.
+  - rule 'variables: add encoding constraint' was applied 132 times.
+  - rule 'variables: detected fully encoded domain' was applied 66 times.
+
+Presolved optimization model '': (model_fingerprint: 0x49c2fa76df83a8fb)
+Search strategy: on 22 variables, CHOOSE_MIN_DOMAIN_SIZE, SELECT_MIN_VALUE
+Search strategy: on 924 variables, CHOOSE_FIRST, SELECT_MAX_VALUE
+#Variables: 6'774 (#bools: 682 #ints: 504 in objective) (6'199 primary variables)
+  - 5'829 Booleans in [0,1]
+  - 6 in [-3,19]
+  - 30 in [0,3]
+  - 12 in [0,4]
+  - 43 in [0,5]
+  - 30 in [0,6]
+  - 42 in [0,7]
+  - 78 in [0,8]
+  - 30 in [0,9]
+  - 60 in [0,10]
+  - 60 in [0,11]
+  - 66 in [0,12]
+  - 18 in [0,13]
+  - 24 in [0,14]
+  - 6 in [0,15]
+  - 6 in [0,19]
+  - 365 in [0,22]
+  - 22 in [0,30]
+  - 25 in [0,31]
+  - 22 in [1,6]
+#kAtMostOne: 792 (#literals: 5'544)
+#kBoolAnd: 176 (#enforced: 176) (#literals: 5'058)
+#kBoolAndClauses: 132 (#enforced: 132 #multi: 132) (#literals: 880)
+#kBoolOr: 7'140 (#literals: 23'884)
+#kExactlyOne: 22 (#literals: 132)
+#kLinMax: 10 (#expressions: 100)
+#kLinear1: 264 (#enforced: 264)
+#kLinear2: 437 (#enforced: 21)
+#kLinear3: 2
+#kLinearN: 537 (#enforced: 21) (#terms: 25'678)
+
+Preloading model.
+#Bound   7.13s best:inf   next:[0,1262735] initial_domain
+#Model   7.14s var:6774/6774 constraints:9512/9512
+
+Starting search at 7.14s with 8 workers.
+6 full problem subsolvers: [core, default_lp, fixed, max_lp, no_lp, quick_restart]
+2 first solution subsolvers: [fj, fs_random_no_lp]
+9 interleaved subsolvers: [feasibility_pump, graph_arc_lns, graph_cst_lns, graph_dec_lns, graph_var_lns, ls, rins/rens, rnd_cst_lns, rnd_var_lns]
+3 helper subsolvers: [neighborhood_helper, synchronization_agent, update_gap_integral]
+
+#1       7.21s best:831840 next:[0,831835] no_lp
+#Bound   7.27s best:831840 next:[500,831835] bool_core (num_cores=1 [size:1 mw:100] a=1186 d=0 fixed=1/6399 clauses=7'558)
+#2       7.31s best:830840 next:[500,830835] graph_arc_lns (d=5.00e-01 s=11 t=0.10 p=0.00 stall=0 h=base) [hint]
+#3       7.35s best:829040 next:[500,829035] ls_restart_decay(batch:1 lin{mvs:7 evals:2'289} #w_updates:0 #perturb:0)
+#4       7.39s best:822640 next:[500,822635] graph_dec_lns (d=5.00e-01 s=13 t=0.10 p=0.00 stall=0 h=base) [hint]
+#5       7.39s best:821240 next:[500,821235] graph_dec_lns (d=5.00e-01 s=13 t=0.10 p=0.00 stall=0 h=base) [hint] [combined with: ls_restart_decay(bat...]
+#Bound   7.45s best:821240 next:[580,821235] quick_restart
+#6       7.47s best:821040 next:[580,821035] graph_var_lns (d=7.07e-01 s=17 t=0.10 p=1.00 stall=1 h=base) [hint]
+#7       7.52s best:819840 next:[580,819835] rnd_cst_lns (d=7.07e-01 s=16 t=0.10 p=1.00 stall=1 h=base) [hint]
+#8       7.52s best:819640 next:[580,819635] rnd_cst_lns (d=7.07e-01 s=16 t=0.10 p=1.00 stall=1 h=base) [hint] [combined with: graph_var_lns (d=7.0...]
+#9       7.58s best:819240 next:[580,819235] graph_arc_lns (d=7.07e-01 s=18 t=0.10 p=1.00 stall=0 h=base) [hint] [combined with: rnd_cst_lns (d=7.07e...]
+#10      7.82s best:810840 next:[580,810835] ls_restart_compound(batch:1 lin{mvs:0 evals:8'924} gen{mvs:108 evals:138} comp{mvs:22 btracks:43} #w_updates:0 #perturb:0)
+#11      7.95s best:808640 next:[580,808635] rnd_var_lns (d=8.14e-01 s=23 t=0.10 p=1.00 stall=2 h=base)
+#12      8.49s best:756440 next:[580,756435] graph_dec_lns (d=7.07e-01 s=20 t=0.10 p=1.00 stall=0 h=base)
+#13      8.49s best:754240 next:[580,754235] graph_dec_lns (d=7.07e-01 s=20 t=0.10 p=1.00 stall=0 h=base) [combined with: ls_restart_compound(...]
+#14      8.62s best:750840 next:[580,750835] graph_var_lns (d=8.14e-01 s=25 t=0.10 p=1.00 stall=0 h=base)
+#15      9.22s best:747640 next:[580,747635] graph_cst_lns (d=8.14e-01 s=27 t=0.10 p=1.00 stall=2 h=base)
+#16      9.23s best:724840 next:[580,724835] ls_restart_compound(batch:1 lin{mvs:0 evals:1'388} gen{mvs:31 evals:22} comp{mvs:31 btracks:0} #w_updates:0 #perturb:0)
+#17      9.47s best:696265 next:[580,696260] graph_arc_lns (d=8.14e-01 s=26 t=0.10 p=1.00 stall=0 h=base)
+#18     10.28s best:644070 next:[580,644065] graph_var_lns (d=8.76e-01 s=31 t=0.10 p=1.00 stall=0 h=base)
+#19     10.29s best:527270 next:[580,527265] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:922} gen{mvs:155 evals:10} comp{mvs:97 btracks:29} #w_updates:0 #perturb:0)
+#20     10.32s best:526270 next:[580,526265] ls_restart_perturb(batch:1 lin{mvs:24 evals:3'654} #w_updates:12 #perturb:0)
+#21     10.74s best:524470 next:[580,524465] ls_restart_decay_perturb(batch:1 lin{mvs:82 evals:11'739} #w_updates:36 #perturb:0)
+#22     11.61s best:524270 next:[580,524265] rnd_cst_lns (d=7.21e-01 s=43 t=0.10 p=0.67 stall=0 h=base)
+#23     11.64s best:523470 next:[580,523465] ls_restart_perturb(batch:1 lin{mvs:6 evals:1'795} #w_updates:0 #perturb:0)
+#24     11.74s best:520370 next:[580,520365] ls_restart_compound(batch:1 lin{mvs:0 evals:84'504} gen{mvs:1'144 evals:1'307} comp{mvs:100 btracks:522} #w_updates:28 #perturb:0)
+#25     12.18s best:496570 next:[580,496565] graph_dec_lns (d=5.38e-01 s=47 t=0.10 p=0.50 stall=0 h=base)
+#26     12.70s best:472270 next:[580,472265] ls_restart_decay(batch:1 lin{mvs:38 evals:1'411} #w_updates:0 #perturb:0)
+#Bound  12.81s best:472270 next:[1000,472265] no_lp
+#Bound  12.82s best:472270 next:[1500,472265] no_lp
+#27     12.83s best:471470 next:[1500,471465] ls_restart_compound_perturb(batch:1 lin{mvs:0 evals:87'823} gen{mvs:1'058 evals:1'760} comp{mvs:26 btracks:516} #w_updates:4 #perturb:0)
+#Bound  12.87s best:471470 next:[2000,471465] no_lp
+#Bound  12.89s best:471470 next:[2500,471465] no_lp
+#Bound  12.91s best:471470 next:[3000,471465] no_lp
+#Bound  12.93s best:471470 next:[3500,471465] no_lp
+#Bound  12.93s best:471470 next:[4000,471465] no_lp
+#Bound  12.95s best:471470 next:[4500,471465] no_lp
+#Bound  12.97s best:471470 next:[5000,471465] no_lp
+#Bound  13.16s best:471470 next:[5500,471465] bool_core (num_cores=4 [size:1 mw:100] a=1186 d=0 fixed=11/6409 clauses=7'558)
+#Bound  13.18s best:471470 next:[6000,471465] bool_core (num_cores=5 [size:1 mw:100] a=1186 d=0 fixed=12/6410 clauses=7'622)
+#Bound  13.21s best:471470 next:[6500,471465] bool_core (num_cores=6 [size:1 mw:100] a=1186 d=0 fixed=13/6411 clauses=7'756)
+#Bound  13.23s best:471470 next:[7000,471465] bool_core (num_cores=7 [size:1 mw:100] a=1186 d=0 fixed=14/6412 clauses=7'756)
+#Bound  13.27s best:471470 next:[7500,471465] bool_core (num_cores=8 [size:1 mw:100] a=1186 d=0 fixed=15/6413 clauses=7'800)
+#28     13.29s best:469270 next:[7500,469265] graph_arc_lns (d=7.21e-01 s=52 t=0.10 p=0.67 stall=0 h=base) [combined with: ls_restart_decay(bat...]
+#Bound  13.29s best:469270 next:[8000,469265] bool_core (num_cores=9 [size:1 mw:100] a=1186 d=0 fixed=16/6414 clauses=8'050)
+#Bound  13.34s best:469270 next:[8500,469265] bool_core (num_cores=10 [size:1 mw:100] a=1186 d=0 fixed=17/6415 clauses=8'303)
+#Bound  13.36s best:469270 next:[9000,469265] bool_core (num_cores=11 [size:1 mw:100] a=1186 d=0 fixed=18/6416 clauses=8'401)
+#Bound  13.39s best:469270 next:[9500,469265] bool_core (num_cores=12 [size:1 mw:100] a=1186 d=0 fixed=19/6417 clauses=8'711)
+#Bound  13.40s best:469270 next:[10000,469265] bool_core (num_cores=13 [size:1 mw:100] a=1186 d=0 fixed=20/6418 clauses=8'718)
+#29     13.44s best:469070 next:[10000,469065] graph_cst_lns (d=5.97e-01 s=57 t=0.10 p=0.50 stall=1 h=base) [combined with: graph_arc_lns (d=7.2...]
+#Bound  13.49s best:469070 next:[10500,469065] bool_core (num_cores=14 [size:1 mw:100] a=1186 d=0 fixed=21/6419 clauses=10'041)
+#Bound  13.52s best:469070 next:[11000,469065] bool_core (num_cores=15 [size:1 mw:100] a=1186 d=0 fixed=22/6420 clauses=10'059)
+#Bound  13.55s best:469070 next:[11500,469065] bool_core (num_cores=16 [size:1 mw:100] a=1186 d=0 fixed=23/6421 clauses=10'359)
+#Bound  13.63s best:469070 next:[12000,469065] bool_core (num_cores=17 [size:1 mw:100] a=1186 d=0 fixed=24/6422 clauses=11'904)
+#Bound  13.66s best:469070 next:[12500,469065] no_lp
+#Bound  13.72s best:469070 next:[13000,469065] bool_core (num_cores=19 [size:1 mw:100] a=1186 d=0 fixed=26/6424 clauses=13'588)
+#Bound  13.80s best:469070 next:[13500,469065] bool_core (num_cores=20 [size:1 mw:100] a=1186 d=0 fixed=27/6425 clauses=13'874)
+#Bound  13.82s best:469070 next:[14000,469065] bool_core (num_cores=21 [size:1 mw:100] a=1186 d=0 fixed=28/6426 clauses=13'919)
+#Bound  13.89s best:469070 next:[14500,469065] bool_core (num_cores=22 [size:1 mw:100] a=1186 d=0 fixed=29/6427 clauses=15'531)
+#Bound  13.94s best:469070 next:[15000,469065] bool_core (num_cores=23 [size:1 mw:100] a=1186 d=0 fixed=30/6428 clauses=15'649)
+#Bound  14.01s best:469070 next:[15500,469065] bool_core (num_cores=24 [size:1 mw:100] a=1186 d=0 fixed=31/6429 clauses=17'104)
+#Bound  14.03s best:469070 next:[16000,469065] bool_core (num_cores=25 [size:1 mw:100] a=1186 d=0 fixed=32/6430 clauses=17'188)
+#Bound  14.06s best:469070 next:[16500,469065] bool_core (num_cores=26 [size:1 mw:100] a=1186 d=0 fixed=33/6431 clauses=17'481)
+#30     14.09s best:461670 next:[16500,461665] rnd_var_lns (d=8.21e-01 s=60 t=0.10 p=0.75 stall=0 h=base)
+#31     14.16s best:461470 next:[18000,461465] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:1'821} gen{mvs:13 evals:35} comp{mvs:3 btracks:5} #w_updates:0 #perturb:0)
+#32     14.24s best:460765 next:[18000,460760] ls_restart_perturb(batch:1 lin{mvs:800 evals:67'015} gen{mvs:28 evals:219} #w_updates:523 #perturb:0)
+#33     14.46s best:458765 next:[20000,458760] graph_dec_lns (d=3.59e-01 s=69 t=0.10 p=0.33 stall=0 h=base) [hint]
+#Bound  15.07s best:458765 next:[25000,458760] bool_core (num_cores=42 [size:1 mw:100] a=1186 d=0 fixed=50/6448 clauses=13'323) [skipped_logs=15]
+#34     15.56s best:447565 next:[28000,447560] graph_dec_lns (d=5.19e-01 s=71 t=0.10 p=0.50 stall=0 h=base)
+#Bound  16.04s best:447565 next:[30000,447560] bool_core (num_cores=52 [size:1 mw:100] a=1186 d=0 fixed=60/6458 clauses=11'217) [skipped_logs=10]
+#35     16.18s best:430165 next:[30500,430160] ls_restart_decay_perturb(batch:1 lin{mvs:40 evals:1'989} #w_updates:0 #perturb:0)
+#36     16.20s best:429565 next:[30500,429560] ls_restart_compound(batch:1 lin{mvs:0 evals:26'990} gen{mvs:311 evals:565} comp{mvs:15 btracks:148} #w_updates:1 #perturb:0)
+#37     16.30s best:428565 next:[31000,428560] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:113'475} gen{mvs:1'421 evals:2'351} comp{mvs:59 btracks:681} #w_updates:7 #perturb:0)
+#38     16.56s best:413360 next:[33500,413355] graph_var_lns (d=7.48e-01 s=75 t=0.10 p=0.60 stall=0 h=base)
+#39     16.56s best:386960 next:[33500,386955] ls_restart_compound(batch:1 lin{mvs:0 evals:1'695} gen{mvs:83 evals:28} comp{mvs:53 btracks:15} #w_updates:1 #perturb:0)
+#40     16.58s best:386360 next:[33500,386355] ls_restart_compound(batch:1 lin{mvs:0 evals:9'500} gen{mvs:115 evals:215} comp{mvs:7 btracks:54} #w_updates:0 #perturb:0)
+#41     16.66s best:378480 next:[33580,378475] fixed
+#42     16.83s best:373685 next:[34080,373680] ls_restart_decay(batch:1 lin{mvs:272 evals:21'413} #w_updates:63 #perturb:0)
+#43     16.86s best:372285 next:[34080,372280] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:1'199} gen{mvs:8 evals:24} comp{mvs:8 btracks:0} #w_updates:0 #perturb:0)
+#Bound  17.07s best:372285 next:[35500,372280] bool_core (num_cores=63 [size:1 mw:100] a=1186 d=0 fixed=71/6469 clauses=16'336) [skipped_logs=12]
+#44     17.23s best:370985 next:[36000,370980] ls_restart(batch:1 lin{mvs:242 evals:17'614} #w_updates:183 #perturb:0)
+#45     17.33s best:369585 next:[36500,369580] ls_restart_compound_perturb(batch:1 lin{mvs:0 evals:29'152} gen{mvs:305 evals:666} comp{mvs:23 btracks:141} #w_updates:1 #perturb:0)
+#46     18.01s best:366185 next:[39500,366180] rnd_var_lns (d=6.52e-01 s=111 t=0.10 p=0.50 stall=0 h=base) [hint]
+#Bound  17.93s best:369585 next:[39500,369580] bool_core (num_cores=71 [size:1 mw:100] a=1186 d=0 fixed=79/6477 clauses=17'289) [skipped_logs=9]
+#47     18.12s best:365585 next:[40000,365580] rnd_var_lns (d=7.43e-01 s=113 t=0.10 p=0.57 stall=0 h=base)
+#48     18.16s best:361385 next:[40500,361380] graph_arc_lns (d=5.88e-01 s=114 t=0.10 p=0.50 stall=1 h=base)
+#49     18.23s best:358985 next:[40500,358980] graph_dec_lns (d=3.69e-01 s=116 t=0.10 p=0.40 stall=0 h=base) [hint]
+#50     18.46s best:357185 next:[40500,357180] graph_dec_lns (d=5.08e-01 s=119 t=0.10 p=0.50 stall=0 h=base) [hint]
+#51     18.62s best:354585 next:[41000,354580] ls_restart_compound(batch:1 lin{mvs:0 evals:41'933} gen{mvs:670 evals:1'155} comp{mvs:20 btracks:325} #w_updates:0 #perturb:0)
+#Bound  18.84s best:354585 next:[42000,354580] bool_core (num_cores=76 [size:1 mw:100] a=1186 d=0 fixed=84/6482 clauses=14'091) [skipped_logs=5]
+#52     19.56s best:334785 next:[42000,334780] rnd_var_lns (d=8.07e-01 s=120 t=0.10 p=0.62 stall=0 h=base)
+#53     19.78s best:331385 next:[42000,331380] ls_restart_perturb(batch:1 lin{mvs:4 evals:1'012} #w_updates:0 #perturb:0)
+#Bound  20.14s best:331385 next:[42080,331380] quick_restart
+#54     21.15s best:318485 next:[42080,318480] graph_dec_lns (d=6.36e-01 s=131 t=0.10 p=0.57 stall=0 h=base)
+#55     21.61s best:317085 next:[42080,317080] rnd_cst_lns (d=8.79e-01 s=134 t=0.10 p=0.69 stall=8 h=base) [hint]
+#56     21.66s best:309185 next:[42080,309180] ls_restart_decay(batch:1 lin{mvs:12 evals:2'015} #w_updates:0 #perturb:0)
+#57     21.68s best:308185 next:[42080,308180] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:23'229} gen{mvs:279 evals:541} comp{mvs:27 btracks:126} #w_updates:1 #perturb:0)
+#58     21.69s best:306885 next:[42080,306880] ls_restart_perturb(batch:1 lin{mvs:65 evals:8'486} #w_updates:59 #perturb:0)
+#59     21.77s best:306485 next:[42080,306480] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:69'466} gen{mvs:902 evals:1'678} comp{mvs:38 btracks:432} #w_updates:3 #perturb:0)
+#Bound  23.28s best:306485 next:[42500,306480] bool_core (num_cores=77 [size:1 mw:100] a=1186 d=0 fixed=85/6483 clauses=23'334)
+#Bound  23.51s best:306485 next:[43000,306480] bool_core (num_cores=78 [size:1 mw:100] a=1186 d=0 fixed=86/6484 clauses=15'210)
+#Bound  23.77s best:306485 next:[43500,306480] bool_core (num_cores=79 [size:1 mw:100] a=1186 d=0 fixed=87/6485 clauses=16'671)
+#60     23.87s best:304685 next:[43500,304680] graph_dec_lns (d=5.15e-01 s=154 t=0.10 p=0.50 stall=0 h=base)
+#61     23.97s best:301285 next:[43500,301280] ls_restart(batch:1 lin{mvs:11 evals:1'679} #w_updates:0 #perturb:0)
+#Bound  24.09s best:301285 next:[44000,301280] bool_core (num_cores=80 [size:1 mw:100] a=1186 d=0 fixed=88/6486 clauses=18'609)
+#62     24.59s best:173740 next:[44000,173735] core
+#Bound  24.99s best:173740 next:[44080,173735] quick_restart [skipped_logs=0]
+#63     25.38s best:143740 next:[44080,143735] graph_dec_lns (d=6.32e-01 s=161 t=0.10 p=0.56 stall=0 h=base)
+#64     25.99s best:127940 next:[44080,127935] ls_restart_decay(batch:1 lin{mvs:69 evals:2'400} #w_updates:0 #perturb:0)
+#65     26.14s best:127345 next:[44080,127340] ls_restart(batch:1 lin{mvs:3'405 evals:120'819} gen{mvs:18 evals:89} #w_updates:1'986 #perturb:0)
+#66     26.18s best:125945 next:[44080,125940] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:1'409} gen{mvs:18 evals:31} comp{mvs:16 btracks:1} #w_updates:0 #perturb:0)
+#67     26.27s best:125745 next:[44080,125740] ls_restart_perturb(batch:1 lin{mvs:1'073 evals:63'293} #w_updates:676 #perturb:0)
+#68     27.00s best:121145 next:[44080,121140] graph_dec_lns (d=5.21e-01 s=178 t=0.10 p=0.50 stall=0 h=base)
+#69     28.04s best:113345 next:[44080,113340] graph_dec_lns (d=6.28e-01 s=181 t=0.10 p=0.55 stall=0 h=base)
+#70     28.12s best:109145 next:[44080,109140] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:936} gen{mvs:16 evals:30} comp{mvs:16 btracks:0} #w_updates:0 #perturb:0)
+#71     28.13s best:108145 next:[44080,108140] ls_restart_decay_perturb(batch:1 lin{mvs:42 evals:2'675} #w_updates:18 #perturb:0)
+#72     28.13s best:107945 next:[44080,107940] ls_restart_decay_perturb(batch:1 lin{mvs:42 evals:2'772} #w_updates:20 #perturb:0)
+#73     28.20s best:107545 next:[44080,107540] ls_restart(batch:1 lin{mvs:1'579 evals:63'380} gen{mvs:52 evals:419} #w_updates:797 #perturb:0)
+#Model  28.43s var:6589/6774 constraints:9313/9512
+#74     28.66s best:107145 next:[44080,107140] rnd_var_lns (d=6.70e-01 s=188 t=0.10 p=0.50 stall=0 h=base)
+#75     28.69s best:106545 next:[44080,106540] ls_restart_decay_perturb(batch:1 lin{mvs:80 evals:4'571} #w_updates:36 #perturb:0)
+#76     28.71s best:104945 next:[44080,104940] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:20'368} gen{mvs:465 evals:595} comp{mvs:49 btracks:208} #w_updates:4 #perturb:0)
+#77     28.75s best:104545 next:[44080,104540] ls_restart_compound(batch:1 lin{mvs:0 evals:32'415} gen{mvs:743 evals:829} comp{mvs:33 btracks:355} #w_updates:7 #perturb:0)
+#78     28.76s best:104145 next:[44080,104140] graph_arc_lns (d=4.66e-01 s=190 t=0.10 p=0.44 stall=2 h=base) [combined with: ls_restart_compound(...]
+#79     28.77s best:103945 next:[44080,103940] ls_restart_decay_perturb(batch:1 lin{mvs:3 evals:471} #w_updates:0 #perturb:0)
+#80     28.78s best:102945 next:[44080,102940] ls_restart_compound(batch:1 lin{mvs:0 evals:4'534} gen{mvs:108 evals:94} comp{mvs:18 btracks:45} #w_updates:1 #perturb:0)
+#81     28.89s best:102345 next:[44080,102340] graph_arc_lns (d=5.90e-01 s=195 t=0.10 p=0.50 stall=0 h=base) [hint] [combined with: ls_restart_compound(...]
+#82     29.37s best:102145 next:[44080,102140] ls_restart_compound(batch:1 lin{mvs:0 evals:766} gen{mvs:13 evals:22} comp{mvs:3 btracks:5} #w_updates:0 #perturb:0)
+#83     29.73s best:101945 next:[44080,101940] rnd_cst_lns (d=7.07e-01 s=199 t=0.10 p=0.53 stall=0 h=base) [combined with: ls_restart_compound(...]
+#84     30.66s best:99945 next:[44080,99940] graph_arc_lns (d=6.82e-01 s=202 t=0.10 p=0.55 stall=0 h=base)
+#85     30.71s best:99745 next:[44080,99740] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:844} gen{mvs:11 evals:30} comp{mvs:3 btracks:4} #w_updates:0 #perturb:0)
+#86     30.86s best:99545 next:[44080,99540] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:42'963} gen{mvs:921 evals:1'039} comp{mvs:35 btracks:443} #w_updates:9 #perturb:0)
+#87     31.25s best:99345 next:[44080,99340] rnd_var_lns (d=6.67e-01 s=211 t=0.10 p=0.50 stall=1 h=base)
+#88     31.51s best:98345 next:[44080,98340] graph_dec_lns (d=5.25e-01 s=214 t=0.10 p=0.50 stall=0 h=base) [hint]
+#89     32.44s best:97645 next:[44080,97640] rnd_var_lns (d=7.37e-01 s=217 t=0.10 p=0.54 stall=0 h=base)
+#90     32.49s best:97445 next:[44080,97440] rnd_var_lns (d=7.37e-01 s=216 t=0.10 p=0.54 stall=0 h=base) [combined with: rnd_var_lns (d=7.37e...]
+#Model  32.81s var:6402/6774 constraints:9109/9512
+#91     33.05s best:96045 next:[44080,96040] graph_dec_lns (d=6.25e-01 s=220 t=0.10 p=0.54 stall=0 h=base)
+#Model  33.06s var:6401/6774 constraints:9109/9512
+#92     33.07s best:95345 next:[44080,95340] ls_restart_decay(batch:1 lin{mvs:5 evals:568} #w_updates:0 #perturb:0)
+#93     33.08s best:94645 next:[44080,94640] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:3'555} gen{mvs:86 evals:124} comp{mvs:16 btracks:35} #w_updates:1 #perturb:0)
+#94     33.14s best:94445 next:[44080,94440] ls_restart_compound(batch:1 lin{mvs:0 evals:45'668} gen{mvs:1'006 evals:1'185} comp{mvs:46 btracks:480} #w_updates:12 #perturb:0)
+#95     33.59s best:93845 next:[44080,93840] ls_restart_compound(batch:1 lin{mvs:0 evals:82'341} gen{mvs:2'320 evals:1'772} comp{mvs:138 btracks:1'091} #w_updates:36 #perturb:0)
+#96     34.51s best:93645 next:[44080,93640] graph_cst_lns (d=8.15e-01 s=236 t=0.10 p=0.59 stall=0 h=base)
+#97     34.70s best:93445 next:[44080,93440] graph_var_lns (d=7.56e-01 s=242 t=0.10 p=0.53 stall=0 h=base)
+#98     36.37s best:93045 next:[44080,93040] graph_var_lns (d=8.04e-01 s=246 t=0.10 p=0.56 stall=0 h=base)
+#99     36.64s best:92245 next:[44080,92240] graph_dec_lns (d=6.28e-01 s=249 t=0.10 p=0.53 stall=0 h=base)
+#100    36.65s best:91645 next:[44080,91640] ls_restart_decay_compound_perturb(batch:1 lin{mvs:0 evals:859} gen{mvs:17 evals:34} comp{mvs:5 btracks:6} #w_updates:0 #perturb:0)
+#101    36.95s best:91045 next:[44080,91040] ls_restart_compound_perturb(batch:1 lin{mvs:0 evals:179'554} gen{mvs:4'571 evals:4'795} comp{mvs:155 btracks:2'208} #w_updates:52 #perturb:0)
+#102    39.37s best:90445 next:[44080,90440] rnd_var_lns (d=7.31e-01 s=269 t=0.10 p=0.53 stall=2 h=base)
+#103    39.94s best:90245 next:[44080,90240] ls_restart_compound(batch:1 lin{mvs:0 evals:591} gen{mvs:9 evals:29} comp{mvs:3 btracks:3} #w_updates:0 #perturb:0)
+#104    39.98s best:90045 next:[44080,90040] graph_arc_lns (d=6.72e-01 s=274 t=0.10 p=0.53 stall=2 h=base)
+#105    39.98s best:89845 next:[44080,89840] graph_arc_lns (d=6.72e-01 s=274 t=0.10 p=0.53 stall=2 h=base) [combined with: ls_restart_compound(...]
+#106    40.07s best:89245 next:[44080,89240] graph_dec_lns (d=4.35e-01 s=279 t=0.10 p=0.47 stall=0 h=base) [hint]
+#107    40.35s best:88845 next:[44080,88840] graph_dec_lns (d=6.20e-01 s=282 t=0.10 p=0.53 stall=1 h=base)
+#108    41.38s best:88445 next:[44080,88440] graph_dec_lns (d=6.88e-01 s=287 t=0.10 p=0.55 stall=0 h=base)
+#109    41.52s best:88245 next:[44080,88240] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:776} gen{mvs:15 evals:33} comp{mvs:3 btracks:6} #w_updates:0 #perturb:0)
+#110    43.61s best:87845 next:[44080,87840] graph_arc_lns (d=4.97e-01 s=306 t=0.10 p=0.47 stall=0 h=base)
+#111    45.75s best:87245 next:[44080,87240] graph_var_lns (d=7.02e-01 s=315 t=0.10 p=0.50 stall=0 h=base)
+#Model  46.70s var:6364/6774 constraints:9069/9512
+#112    48.56s best:86845 next:[44080,86840] ls_restart_compound_perturb(batch:1 lin{mvs:0 evals:78'947} gen{mvs:2'263 evals:2'249} comp{mvs:91 btracks:1'086} #w_updates:26 #perturb:0)
+#113    50.89s best:86645 next:[44080,86640] graph_dec_lns (d=7.35e-01 s=353 t=0.10 p=0.56 stall=3 h=base)
+#114    50.93s best:86445 next:[44080,86440] graph_dec_lns (d=7.35e-01 s=354 t=0.10 p=0.56 stall=3 h=base)
+#115    51.87s best:86245 next:[44080,86240] rnd_var_lns (d=8.18e-01 s=357 t=0.10 p=0.57 stall=4 h=base)
+#116    53.65s best:86045 next:[44080,86040] graph_var_lns (d=5.55e-01 s=366 t=0.10 p=0.45 stall=0 h=base)
+#117    54.69s best:85845 next:[44080,85840] ls_restart_decay_perturb(batch:1 lin{mvs:3 evals:355} #w_updates:0 #perturb:0)
+#118    54.97s best:85445 next:[44080,85440] ls_restart_compound(batch:1 lin{mvs:0 evals:83'663} gen{mvs:2'173 evals:2'511} comp{mvs:87 btracks:1'043} #w_updates:25 #perturb:0)
+#Model  55.39s var:6327/6774 constraints:9029/9512
+#119    55.84s best:84640 next:[44080,84635] ls_restart_decay_compound(batch:1 lin{mvs:0 evals:33'981} gen{mvs:966 evals:1'108} comp{mvs:40 btracks:463} #w_updates:12 #perturb:0)
+#Model  60.70s var:6213/6774 constraints:8898/9512
+#120    62.43s best:84440 next:[44080,84435] quick_restart
+#121    62.70s best:84240 next:[44080,84235] graph_dec_lns (d=5.58e-01 s=437 t=0.10 p=0.50 stall=3 h=base) [hint]
+#122    62.76s best:83640 next:[44080,83635] graph_dec_lns (d=5.58e-01 s=438 t=0.10 p=0.50 stall=3 h=base) [hint]
+#Model  63.43s var:6176/6774 constraints:8858/9512
+#123    65.03s best:55720 next:[44080,55715] core
+#Bound  65.34s best:55720 next:[44100,55715] bool_core (num_cores=81 [size:5 mw:20 d:3] a=1182 d=3 fixed=690/6780 clauses=21'591)
+#Bound  65.53s best:55720 next:[44200,55715] bool_core (num_cores=82 [size:7 mw:20 d:3] a=1176 d=3 fixed=690/6789 clauses=21'813)
+#Bound  65.71s best:55720 next:[44300,55715] bool_core (num_cores=83 [size:7 mw:20 d:3] a=1170 d=3 fixed=690/6800 clauses=21'867)
+#Bound  65.94s best:55720 next:[44400,55715] bool_core (num_cores=84 [size:7 mw:20 d:3] a=1164 d=3 fixed=690/6811 clauses=22'545)
+#Model  66.12s var:5461/6774 constraints:8054/9512
+#Bound  66.19s best:55720 next:[44500,55715] bool_core (num_cores=85 [size:7 mw:20 d:3] a=1158 d=3 fixed=690/6822 clauses=23'626)
+#Bound  66.32s best:55720 next:[44620,55715] bool_core (num_cores=86 [size:7 mw:20 d:3] a=1152 d=3 fixed=1414/6833 clauses=23'637)
+#Bound  66.46s best:55720 next:[44720,55715] bool_core (num_cores=87 [size:7 mw:20 d:3] a=1146 d=3 fixed=1414/6844 clauses=23'648)
+#Bound  66.60s best:55720 next:[44820,55715] bool_core (num_cores=88 [size:7 mw:20 d:3] a=1140 d=3 fixed=1414/6855 clauses=23'659)
+#Model  66.63s var:5273/6774 constraints:7843/9512
+#Bound  66.75s best:55720 next:[44920,55715] bool_core (num_cores=89 [size:7 mw:20 d:3] a=1134 d=3 fixed=1604/6866 clauses=23'670)
+#Bound  66.92s best:55720 next:[45020,55715] bool_core (num_cores=90 [size:7 mw:20 d:3] a=1128 d=3 fixed=1604/6877 clauses=23'886)
+#Bound  67.10s best:55720 next:[45120,55715] bool_core (num_cores=91 [size:7 mw:20 d:3] a=1122 d=3 fixed=1604/6888 clauses=24'060)
+#Bound  67.28s best:55720 next:[45220,55715] bool_core (num_cores=92 [size:7 mw:20 d:3] a=1116 d=3 fixed=1604/6899 clauses=24'202)
+#Bound  67.46s best:55720 next:[45320,55715] bool_core (num_cores=93 [size:7 mw:20 d:3] a=1110 d=3 fixed=1604/6910 clauses=24'250)
+#Bound  67.96s best:55720 next:[45420,55715] bool_core (num_cores=94 [size:11 mw:20 d:4] a=1100 d=4 fixed=1604/6925 clauses=24'508)
+#Bound  68.30s best:55720 next:[45520,55715] bool_core (num_cores=95 [size:7 mw:20 d:3] a=1094 d=4 fixed=1604/6940 clauses=24'880)
+#Bound  68.61s best:55720 next:[45620,55715] bool_core (num_cores=96 [size:7 mw:20 d:3] a=1088 d=4 fixed=1604/6951 clauses=25'171)
+#Bound  68.89s best:55720 next:[45720,55715] bool_core (num_cores=97 [size:7 mw:20 d:3] a=1082 d=4 fixed=1604/6962 clauses=25'410)
+#124    69.20s best:55680 next:[45720,55675] quick_restart
+#Bound  69.27s best:55680 next:[45820,55675] bool_core (num_cores=98 [size:7 mw:20 d:3] a=1076 d=4 fixed=1604/6973 clauses=26'664)
+#Bound  69.60s best:55680 next:[45920,55675] bool_core (num_cores=99 [size:7 mw:20 d:3] a=1070 d=4 fixed=1604/6984 clauses=27'398)
+#Bound  69.85s best:55680 next:[46020,55675] bool_core (num_cores=100 [size:7 mw:20 d:3] a=1064 d=4 fixed=1604/6995 clauses=27'412)
+#Bound  70.10s best:55680 next:[46120,55675] bool_core (num_cores=101 [size:7 mw:20 d:3] a=1058 d=4 fixed=1604/7006 clauses=27'428)
+#Bound  70.30s best:55680 next:[46220,55675] bool_core (num_cores=102 [size:7 mw:20 d:3] a=1052 d=4 fixed=1604/7017 clauses=27'440)
+#Bound  70.43s best:55680 next:[46320,55675] bool_core (num_cores=103 [size:7 mw:20 d:3] a=1046 d=4 fixed=1604/7028 clauses=27'451)
+#Bound  70.64s best:55680 next:[46420,55675] bool_core (num_cores=104 [size:9 mw:20 d:4] a=1039 d=4 fixed=1604/7041 clauses=27'935)
+#Bound  70.78s best:55680 next:[46520,55675] bool_core (num_cores=105 [size:7 mw:20 d:3] a=1033 d=4 fixed=1604/7055 clauses=28'065)
+#Bound  71.00s best:55680 next:[46620,55675] bool_core (num_cores=106 [size:5 mw:20 d:3] a=1029 d=4 fixed=1604/7064 clauses=28'568)
+#Bound  71.13s best:55680 next:[46720,55675] bool_core (num_cores=107 [size:7 mw:20 d:3] a=1023 d=4 fixed=1604/7073 clauses=28'577)
+#Bound  71.27s best:55680 next:[46820,55675] bool_core (num_cores=108 [size:7 mw:20 d:3] a=1017 d=4 fixed=1604/7084 clauses=28'589)
+#Bound  71.42s best:55680 next:[46920,55675] bool_core (num_cores=109 [size:7 mw:20 d:3] a=1011 d=4 fixed=1604/7095 clauses=28'600)
+#Bound  71.63s best:55680 next:[47020,55675] bool_core (num_cores=110 [size:7 mw:20 d:3] a=1005 d=4 fixed=1604/7106 clauses=28'611)
+#Bound  71.78s best:55680 next:[47120,55675] bool_core (num_cores=111 [size:7 mw:20 d:3] a=999 d=4 fixed=1604/7117 clauses=28'827)
+#Bound  71.95s best:55680 next:[47220,55675] bool_core (num_cores=112 [size:7 mw:20 d:3] a=993 d=4 fixed=1604/7128 clauses=29'114)
+#Bound  72.12s best:55680 next:[47320,55675] bool_core (num_cores=113 [size:7 mw:20 d:3] a=987 d=4 fixed=1604/7139 clauses=29'381)
+#Bound  72.38s best:55680 next:[47420,55675] bool_core (num_cores=114 [size:7 mw:20 d:3] a=981 d=4 fixed=1604/7150 clauses=20'021)
+#Bound  72.59s best:55680 next:[47520,55675] bool_core (num_cores=115 [size:7 mw:20 d:3] a=975 d=4 fixed=1604/7161 clauses=20'422)
+#Bound  72.74s best:55680 next:[47620,55675] bool_core (num_cores=116 [size:6 mw:20 d:4] a=970 d=4 fixed=1604/7171 clauses=20'434)
+#Bound  72.86s best:55680 next:[47720,55675] bool_core (num_cores=117 [size:5 mw:20 d:3] a=966 d=4 fixed=1604/7182 clauses=20'447)
+#Bound  72.99s best:55680 next:[47820,55675] bool_core (num_cores=118 [size:5 mw:20 d:3] a=962 d=4 fixed=1604/7189 clauses=20'454)
+#Bound  73.20s best:55680 next:[47920,55675] bool_core (num_cores=119 [size:7 mw:20 d:3] a=956 d=4 fixed=1604/7198 clauses=21'081)
+#Bound  73.38s best:55680 next:[48020,55675] bool_core (num_cores=120 [size:7 mw:20 d:3] a=950 d=4 fixed=1604/7209 clauses=21'182)
+#Bound  73.55s best:55680 next:[48120,55675] bool_core (num_cores=121 [size:7 mw:20 d:3] a=944 d=4 fixed=1604/7220 clauses=21'319)
+#Bound  73.80s best:55680 next:[48220,55675] bool_core (num_cores=122 [size:7 mw:20 d:3] a=938 d=4 fixed=1604/7231 clauses=20'846)
+#Model  75.80s var:4904/6774 constraints:7436/9512
+#Model  76.01s var:4529/6774 constraints:7017/9512
+#Model  76.15s var:4492/6774 constraints:6976/9512
+#Bound  81.53s best:55680 next:[48320,55675] bool_core (num_cores=123 [size:7 mw:20 d:3] a=932 d=4 fixed=1604/7242 clauses=20'817)
+#Bound  81.73s best:55680 next:[48420,55675] bool_core (num_cores=124 [size:7 mw:20 d:3] a=926 d=4 fixed=2400/7253 clauses=20'928)
+#Bound  81.91s best:55680 next:[48520,55675] bool_core (num_cores=125 [size:7 mw:20 d:3] a=920 d=4 fixed=2400/7264 clauses=20'951)
+#Bound  82.16s best:55680 next:[48620,55675] bool_core (num_cores=126 [size:7 mw:20 d:3] a=914 d=4 fixed=2400/7275 clauses=21'963)
+#Bound  82.36s best:55680 next:[48720,55675] bool_core (num_cores=127 [size:7 mw:20 d:3] a=908 d=4 fixed=2400/7286 clauses=22'476)
+#Bound  82.50s best:55680 next:[48820,55675] bool_core (num_cores=128 [size:7 mw:20 d:3] a=902 d=4 fixed=2400/7297 clauses=22'630)
+#Bound  82.68s best:55680 next:[48920,55675] bool_core (num_cores=129 [size:7 mw:20 d:3] a=896 d=4 fixed=2400/7308 clauses=22'809)
+#Bound  82.94s best:55680 next:[49020,55675] bool_core (num_cores=130 [size:7 mw:20 d:3] a=890 d=4 fixed=2400/7319 clauses=23'833)
+#Bound  83.12s best:55680 next:[49120,55675] bool_core (num_cores=131 [size:7 mw:20 d:3] a=884 d=4 fixed=2400/7330 clauses=23'920)
+#Bound  83.28s best:55680 next:[49220,55675] bool_core (num_cores=132 [size:7 mw:20 d:3] a=878 d=4 fixed=2400/7341 clauses=23'975)
+#Bound  83.52s best:55680 next:[49320,55675] bool_core (num_cores=133 [size:7 mw:20 d:3] a=872 d=4 fixed=2400/7352 clauses=24'436)
+#Bound  83.80s best:55680 next:[49420,55675] bool_core (num_cores=134 [size:5 mw:20 d:3] a=868 d=4 fixed=2400/7361 clauses=24'739)
+#Bound  84.04s best:55680 next:[49520,55675] bool_core (num_cores=135 [size:5 mw:20 d:3] a=864 d=4 fixed=2400/7368 clauses=24'812)
+#Bound  84.46s best:55680 next:[49620,55675] bool_core (num_cores=136 [size:7 mw:20 d:3] a=858 d=4 fixed=2400/7377 clauses=25'338)
+#Bound  84.76s best:55680 next:[49720,55675] bool_core (num_cores=137 [size:7 mw:20 d:3] a=852 d=4 fixed=2400/7388 clauses=25'433)
+#Bound  85.12s best:55680 next:[49820,55675] bool_core (num_cores=138 [size:7 mw:20 d:3] a=846 d=4 fixed=2400/7399 clauses=25'961)
+#Bound  85.40s best:55680 next:[49920,55675] bool_core (num_cores=139 [size:7 mw:20 d:3] a=840 d=4 fixed=2400/7410 clauses=26'128)
+#Bound  85.59s best:55680 next:[50020,55675] bool_core (num_cores=140 [size:5 mw:20 d:3] a=836 d=4 fixed=2400/7419 clauses=26'253)
+#Bound  85.93s best:55680 next:[50120,55675] bool_core (num_cores=141 [size:7 mw:20 d:4] a=830 d=4 fixed=2400/7428 clauses=26'557) [skipped_logs=0]
+#Bound  87.03s best:55680 next:[50820,55675] bool_core (num_cores=148 [size:7 mw:20 d:4] a=788 d=5 fixed=2400/7523 clauses=27'367) [skipped_logs=6]
+#Bound  87.96s best:55680 next:[51420,55675] bool_core (num_cores=154 [size:7 mw:20 d:5] a=748 d=6 fixed=2400/7622 clauses=27'744) [skipped_logs=5]
+#Bound  88.90s best:55680 next:[51920,55675] bool_core (num_cores=159 [size:9 mw:20 d:5] a=716 d=6 fixed=2400/7704 clauses=28'016) [skipped_logs=4]
+#Bound  89.93s best:55680 next:[52320,55675] bool_core (num_cores=163 [size:9 mw:20 d:5] a=682 d=6 fixed=2400/7795 clauses=18'867) [skipped_logs=3]
+#Bound  90.71s best:55680 next:[52720,55675] bool_core (num_cores=167 [size:7 mw:20 d:7] a=650 d=7 fixed=2400/7884 clauses=19'032) [skipped_logs=3]
+#Bound  92.06s best:55680 next:[52920,55675] bool_core (num_cores=169 [size:6 mw:20 d:6] a=634 d=7 fixed=2400/7934 clauses=24'706) [skipped_logs=1]
+#Bound  92.73s best:55680 next:[53220,55675] bool_core (num_cores=172 [size:3 mw:20 d:6] a=625 d=7 fixed=2400/7990 clauses=25'098) [skipped_logs=2]
+#Bound  93.72s best:55680 next:[53420,55675] bool_core (num_cores=174 [size:7 mw:20 d:7] a=613 d=7 fixed=2400/8047 clauses=19'501) [skipped_logs=1]
+#Bound  94.96s best:55680 next:[54020,55675] bool_core (num_cores=180 [size:6 mw:20 d:6] a=585 d=9 fixed=2401/8226 clauses=21'851) [skipped_logs=5]
+#Bound  96.05s best:55680 next:[54420,55675] bool_core (num_cores=184 [size:3 mw:20 d:7] a=572 d=10 fixed=2402/8334 clauses=24'655) [skipped_logs=3]
+#Bound  96.47s best:55680 next:[54620,55675] bool_core (num_cores=186 [size:4 mw:20 d:11] a=564 d=11 fixed=2403/8369 clauses=25'936) [skipped_logs=1]
+#Model  97.72s var:4381/6774 constraints:6856/9512
+#Bound  99.55s best:55680 next:[54720,55675] bool_core (num_cores=187 [size:6 mw:20 d:6] a=559 d=11 fixed=2514/8420 clauses=28'135)
+#Bound 100.12s best:55680 next:[54820,55675] bool_core (num_cores=188 [size:3 mw:20 d:6] a=557 d=11 fixed=2514/8438 clauses=30'539)
+#Bound 100.55s best:55680 next:[54920,55675] bool_core (num_cores=189 [size:3 mw:20 d:12] a=555 d=12 fixed=2515/8450 clauses=23'379)
+#Bound 100.98s best:55680 next:[55020,55675] bool_core (num_cores=190 [size:3 mw:20 d:7] a=553 d=12 fixed=2515/8500 clauses=25'147) [skipped_logs=0]
+#Model 106.00s var:4307/6774 constraints:6775/9512
+#Model 107.64s var:4270/6774 constraints:6734/9512
+#Model 107.78s var:4233/6774 constraints:6693/9512
+#125   111.57s best:55580 next:[55020,55575] ls_restart_perturb(batch:1 lin{mvs:576 evals:3'840} gen{mvs:36 evals:173} #w_updates:457 #perturb:0)
+#Model 135.53s var:4193/6774 constraints:6645/9512
+#Model 139.41s var:4116/6774 constraints:6556/9512
+#Model 152.40s var:3999/6774 constraints:6405/9512 compo:3985,1,1,1,1,1,1,1,1,1,...
+#Model 153.17s var:3991/6774 constraints:6405/9512 compo:3985,1,1,1,1,1,1
+#Model 153.24s var:3988/6774 constraints:6405/9512 compo:3985,1,1,1
+#Model 155.08s var:3985/6774 constraints:6405/9512
+#Bound 159.64s best:55580 next:[55100,55575] max_lp
+#Model 159.68s var:3963/6774 constraints:6367/9512 compo:3925,1,1,1,1,1,1,1,1,1,...
+#Model 159.78s var:3778/6774 constraints:6162/9512 compo:3740,1,1,1,1,1,1,1,1,1,...
+#Model 160.42s var:3741/6774 constraints:6122/9512 compo:3703,1,1,1,1,1,1,1,1,1,...
+#126   162.27s best:55480 next:[55100,55475] rins_lp_lns (d=4.79e-01 s=1074 t=0.10 p=0.51 stall=43 h=base)
+#Model 162.94s var:3667/6774 constraints:6037/9512 compo:3626,1,1,1,1,1,1,1,1,1,...
+#Model 163.29s var:3641/6774 constraints:6037/9512 compo:3626,1,1,1,1,1,1,1,1,1,...
+#Bound 165.82s best:55480 next:[55105,55475] max_lp
+#Bound 165.89s best:55480 next:[55145,55475] max_lp
+#Model 165.90s var:3601/6774 constraints:5972/9512 compo:3569,1,1,1,1,1,1,1,1,1,...
+#Model 166.02s var:3527/6774 constraints:5890/9512 compo:3495,1,1,1,1,1,1,1,1,1,...
+#Model 166.67s var:3379/6774 constraints:5728/9512 compo:3347,1,1,1,1,1,1,1,1,1,...
+#Model 167.33s var:3356/6774 constraints:5728/9512 compo:3347,1,1,1,1,1,1,1,1,1
+#Model 174.07s var:3282/6774 constraints:5641/9512 compo:3267,1,1,1,1,1,1,1,1,1,...
+#Model 174.57s var:3281/6774 constraints:5641/9512 compo:3267,1,1,1,1,1,1,1,1,1,...
+#Model 174.73s var:3244/6774 constraints:5594/9512 compo:3224,1,1,1,1,1,1,1,1,1,...
+#Model 174.86s var:3207/6774 constraints:5553/9512 compo:3187,1,1,1,1,1,1,1,1,1,...
+#Model 180.85s var:3196/6774 constraints:5550/9512 compo:3184,1,1,1,1,1,1,1,1,1,...
+#Model 181.77s var:3185/6774 constraints:5550/9512 compo:3184,1
+#Model 182.03s var:3184/6774 constraints:5550/9512
+#Model 182.76s var:3147/6774 constraints:5505/9512 compo:3143,1,1,1,1
+#Model 188.39s var:3146/6774 constraints:5505/9512 compo:3142,1,1,1,1
+#Model 189.36s var:3109/6774 constraints:5460/9512 compo:3101,1,1,1,1,1,1,1,1
+#Model 193.61s var:3103/6774 constraints:5460/9512 compo:3101,1,1
+#Bound 194.76s best:55480 next:[55165,55475] max_lp
+#Model 194.90s var:3029/6774 constraints:5374/9512 compo:3024,1,1,1,1,1
+#Model 200.78s var:3024/6774 constraints:5374/9512
+#Model 201.90s var:2948/6774 constraints:5286/9512
+#Model 212.82s var:2911/6774 constraints:5239/9512 compo:2910,1
+#Bound 216.03s best:55480 next:[55185,55475] max_lp
+#Model 222.01s var:2910/6774 constraints:5236/9512 compo:2907,1,1,1
+#Model 222.42s var:2908/6774 constraints:5236/9512 compo:2907,1
+#Bound 224.17s best:55480 next:[55240,55475] max_lp
+#Model 238.08s var:2907/6774 constraints:5234/9512 compo:2905,1,1
+#Model 239.02s var:2905/6774 constraints:5234/9512
+#Bound 240.53s best:55480 next:[55245,55475] max_lp
+#Model 247.41s var:2903/6774 constraints:5226/9512 compo:2902,1
+#Model 252.60s var:2902/6774 constraints:5226/9512
+#Bound 259.65s best:55480 next:[55250,55475] max_lp
+#Model 262.34s var:2901/6774 constraints:5222/9512
+#Bound 271.81s best:55480 next:[55255,55475] max_lp
+#Model 271.87s var:2899/6774 constraints:5219/9512
+#Bound 283.86s best:55480 next:[55260,55475] max_lp
+#Model 294.90s var:2895/6774 constraints:5206/9512
+#Bound 307.84s best:55480 next:[55265,55475] max_lp
+#Model 320.41s var:2893/6774 constraints:5199/9512
+#127   326.37s best:55440 next:[55265,55435] max_lp
+#Model 332.31s var:2413/6774 constraints:4524/9512
+#Model 332.39s var:2411/6774 constraints:4514/9512
+#Model 332.88s var:2385/6774 constraints:4414/9512
+#Model 336.02s var:2384/6774 constraints:4409/9512
+#Model 336.40s var:2383/6774 constraints:4409/9512
+#Model 336.45s var:2371/6774 constraints:4366/9512
+#Model 340.85s var:2370/6774 constraints:4361/9512
+#Model 349.72s var:2368/6774 constraints:4357/9512
+#Bound 356.38s best:55440 next:[55330,55435] max_lp
+#Model 356.46s var:2366/6774 constraints:4356/9512
+#Model 356.77s var:2329/6774 constraints:4316/9512
+#Model 356.79s var:2312/6774 constraints:4277/9512
+#Model 361.85s var:2310/6774 constraints:4270/9512
+#Bound 365.11s best:55440 next:[55340,55435] max_lp
+#Model 365.15s var:2289/6774 constraints:4270/9512
+#Model 371.52s var:2288/6774 constraints:4270/9512
+#Model 384.86s var:2279/6774 constraints:4259/9512
+#Model 391.03s var:2275/6774 constraints:4253/9512
+#Model 398.37s var:2272/6774 constraints:4241/9512
+#Model 400.64s var:2270/6774 constraints:4234/9512
+#Model 406.21s var:2265/6774 constraints:4212/9512
+#Model 413.30s var:2260/6774 constraints:4193/9512
+#Model 421.51s var:2259/6774 constraints:4188/9512
+#Model 423.14s var:2257/6774 constraints:4184/9512
+#Model 430.94s var:2255/6774 constraints:4176/9512
+#Model 437.14s var:2253/6774 constraints:4168/9512
+#Model 445.08s var:2251/6774 constraints:4164/9512
+#Model 454.07s var:2249/6774 constraints:4154/9512
+#Model 454.50s var:2247/6774 constraints:4147/9512
+#Model 465.07s var:2243/6774 constraints:4133/9512
+#Model 467.66s var:2241/6774 constraints:4125/9512
+#Model 556.80s var:2239/6774 constraints:4124/9512
+#Model 596.39s var:2237/6774 constraints:4120/9512
+
+Task timing                   n [     min,      max]      avg      dev     time         n [     min,      max]      avg      dev    dtime
+              'core':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [ 49.07us,    2.93m]    1.46m    1.46m    2.93m
+        'default_lp':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [  1.52ms,   39.06s]   19.53s   19.53s   39.07s
+  'feasibility_pump':      1411 [603.21us, 179.55ms]  33.73ms  10.92ms   47.59s      1409 [  1.93ms,  63.31ms]   2.19ms   1.84ms    3.09s
+             'fixed':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [  1.52ms,   32.17s]   16.08s   16.08s   32.17s
+                'fj':         0 [  0.00ns,   0.00ns]   0.00ns   0.00ns   0.00ns         0 [  0.00ns,   0.00ns]   0.00ns   0.00ns   0.00ns
+   'fs_random_no_lp':         1 [ 74.08ms,  74.08ms]  74.08ms   0.00ns  74.08ms         1 [  2.74ms,   2.74ms]   2.74ms   0.00ns   2.74ms
+     'graph_arc_lns':       333 [  2.99ms,    2.03s] 424.90ms 437.43ms    2.36m       249 [ 10.00ns, 110.46ms]  62.40ms  47.86ms   15.54s
+     'graph_cst_lns':       321 [  2.91ms,    1.59s] 444.18ms 418.63ms    2.38m       255 [ 10.00ns, 110.46ms]  61.82ms  47.89ms   15.76s
+     'graph_dec_lns':       270 [  6.93ms,    2.48s] 524.73ms 466.03ms    2.36m       227 [ 10.00ns, 108.28ms]  59.56ms  47.47ms   13.52s
+     'graph_var_lns':       326 [  2.40ms,    2.14s] 439.33ms 459.08ms    2.39m       255 [ 10.00ns, 108.35ms]  56.35ms  49.15ms   14.37s
+                'ls':       454 [  3.53ms, 784.71ms] 311.12ms 138.07ms    2.35m       454 [131.59us, 106.63ms]  88.81ms  30.11ms   40.32s
+            'max_lp':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [258.72ms,    2.06m]    1.03m    1.03m    2.06m
+             'no_lp':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [ 50.33us,   31.40s]   15.70s   15.70s   31.40s
+     'quick_restart':         1 [   9.88m,    9.88m]    9.88m   0.00ns    9.88m         2 [  1.52ms,    1.24m]   37.23s   37.23s    1.24m
+         'rins/rens':       273 [  1.51ms,    2.75s] 521.14ms 522.82ms    2.37m       197 [ 10.00ns, 106.17ms]  68.16ms  42.21ms   13.43s
+       'rnd_cst_lns':       293 [  2.19ms,    1.79s] 484.36ms 447.47ms    2.37m       242 [ 10.00ns, 108.37ms]  60.63ms  47.49ms   14.67s
+       'rnd_var_lns':       252 [  2.00ms,    2.09s] 565.38ms 489.86ms    2.37m       218 [ 10.00ns, 108.27ms]  59.95ms  46.66ms   13.07s
+
+Search stats          Bools  Conflicts   Branches  Restarts  BacktrackToRoot  Backtrack   BoolPropag  IntegerPropag
+             'core':  8'748  2'425'414  4'294'704       990           40'710  2'431'605  312'202'207    145'512'321
+       'default_lp':  5'895     92'440    629'008        49          157'703    310'183   28'232'394    115'582'058
+            'fixed':  6'183     41'336     62'057         0            7'535     57'575    9'645'637     45'464'685
+  'fs_random_no_lp':  5'950          0        657         0                0          0        5'292         15'604
+           'max_lp':  6'285      9'634  1'969'544        92          703'781  1'004'091   34'041'598     62'317'726
+            'no_lp':  6'107    117'452    225'027        26            7'926    133'540   12'100'796     59'813'781
+    'quick_restart':  6'733     12'294  2'429'371       941          790'280  1'134'388   42'903'521     76'284'315
+
+SAT formula           Fixed  Equiv  Total  VarLeft  BinaryClauses  PermanentClauses  TemporaryClauses
+             'core':  4'954    652  8'748    3'142         13'326            11'622            10'389
+       'default_lp':  4'061    555  5'895    1'279          5'198             3'497             4'615
+            'fixed':      0      0  6'183    6'183         10'806             7'514            10'719
+  'fs_random_no_lp':      0      0  5'950    5'950         10'292             7'514                 0
+           'max_lp':  4'407    555  6'285    1'323          5'198             3'430             4'733
+            'no_lp':     27      0  6'107    6'080         10'814             7'785            13'487
+    'quick_restart':  4'899    555  6'733    1'279          5'198             3'451             4'487
+
+SAT stats             ClassicMinim  LitRemoved  LitRemovedBinary   LitLearned  LitForgotten  Subsumed
+             'core':     1'317'620   5'825'412         2'011'907  112'589'656    84'207'421   483'849
+       'default_lp':        84'515  27'315'908        46'008'664    7'933'224     5'478'094    15'504
+            'fixed':        36'566     296'302       169'105'576    3'811'029     2'817'427         1
+  'fs_random_no_lp':             0           0                 0            0             0         0
+           'max_lp':         6'224     103'962            23'178      300'264             0     1'998
+            'no_lp':       113'797   6'700'563       365'334'956   19'585'961    12'855'202    26'529
+    'quick_restart':         6'387      83'871           167'183      386'252             0     3'464
+
+Vivification          Clauses  Decisions  LitTrue  Subsumed  LitRemoved  DecisionReused  Conflicts
+             'core':   39'293    242'148        0     3'189      40'643          49'550        595
+       'default_lp':  155'256    394'174        0     2'574      13'224          76'849         27
+            'fixed':    4'445      5'649        0         0           0           3'307          0
+  'fs_random_no_lp':        0          0        0         0           0               0          0
+           'max_lp':  675'636  1'597'622       11     2'167      11'373         408'118         28
+            'no_lp':    4'461      5'673        0         0           0           3'315          0
+    'quick_restart':  756'885  1'821'324       77     1'762      12'028         455'018        102
+
+Clause deletion       at_true  l_and_not(l)  to_binary  sub_conflict  sub_extra  sub_decisions  sub_eager  sub_vivify  sub_probing  sub_inpro  blocked  eliminated  forgotten   promoted  conflicts
+             'core':   53'846           899        825       473'707     64'735            174     10'142       3'189          176      7'214        0           0  1'801'851  5'698'959  2'425'414
+       'default_lp':   13'905            15        725        14'985        479             15        519       2'574          700        364        0           0     61'583    223'536     92'440
+            'fixed':        0             0          0             0          0              0          1           0            0          0        0           0     30'616     80'719     41'336
+  'fs_random_no_lp':        0             0          0             0          0              0          0           0            0          0        0           0          0          0          0
+           'max_lp':    4'915         1'041        406         1'864         68             30        134       2'167        1'102        790        0           0          0     17'992      9'634
+            'no_lp':        0             0          0        25'634        520             26        895           0            0          0        0           0     76'550    263'694    117'452
+    'quick_restart':    4'082         1'787        310         3'192         66             74        272       1'762        1'381      1'177        0           0          0     21'648     12'294
+
+Lp stats            Component  Iterations  AddedCuts  OPTIMAL  DUAL_F.  DUAL_U.
+     'default_lp':         13     208'141      1'778  260'949        5      206
+          'fixed':         13      66'512        739  222'510        0        0
+         'max_lp':          1     469'584      6'305      266   22'920    1'664
+  'quick_restart':         13   1'323'203      4'669  232'821       35      655
+
+Lp dimension            Final dimension of first component
+     'default_lp':        25 rows, 166 columns, 68 entries
+          'fixed':       63 rows, 166 columns, 432 entries
+         'max_lp':  3464 rows, 6818 columns, 27448 entries
+  'quick_restart':       42 rows, 166 columns, 113 entries
+
+Lp debug            CutPropag  CutEqPropag  Adjust  Overflow      Bad  BadScaling
+     'default_lp':          4           14  26'429         0   70'953           0
+          'fixed':          0            3     216         0   10'510           0
+         'max_lp':        926            0  24'659         0  182'514           0
+  'quick_restart':        232           97  26'577         0  168'871           0
+
+Lp pool             Constraints  Updates  Simplif  Merged  Shortened  Split  Strengthened     Cuts/Call
+     'default_lp':        3'698    1'250   27'054       0      8'882  1'167           282   1'778/3'996
+          'fixed':        2'659      192        0       0          0    183             7     739/1'315
+         'max_lp':       20'616    3'680  308'037       5     29'126    506         7'719  6'305/12'417
+  'quick_restart':        6'588    3'053  197'473       1     48'545  8'214         1'878  4'669/10'080
+
+Lp Cut            fixed  default_lp  quick_restart  max_lp
+          CG_FF:     28          65            295      97
+           CG_K:     39          16             57      47
+          CG_KL:      8          10             19       -
+           CG_R:     36          83            465     221
+          CG_RB:     51          47            154       5
+         CG_RBP:     35          34            122      31
+         Clique:      -           -              -     186
+             IB:     18          20             95       7
+         LinMax:      -           -              -      11
+       MIR_1_FF:     10          28             29      34
+        MIR_1_K:     29          45             48       8
+       MIR_1_KL:      8          20             13       1
+        MIR_1_R:      2           6             29      24
+       MIR_1_RB:     29          38             47       -
+      MIR_1_RBP:      2           4              7       1
+      MIR_1_RLT:      -           -              -   1'449
+       MIR_2_FF:     24          49             56      57
+        MIR_2_K:     32          55             42       8
+       MIR_2_KL:     18          38             25       4
+        MIR_2_R:     13           6             41      77
+       MIR_2_RB:     29          40             32       6
+      MIR_2_RBP:      9          13              8      13
+       MIR_3_FF:     19          40             51     106
+        MIR_3_K:     18          33             27      10
+       MIR_3_KL:     12          19             11       2
+        MIR_3_R:      7          16             39     138
+       MIR_3_RB:     20          34             19       5
+      MIR_3_RBP:      5           8              2       4
+       MIR_4_FF:      5          20             32     107
+        MIR_4_K:      5           5              9       6
+       MIR_4_KL:      3           6              3       1
+        MIR_4_R:      2          11             26     120
+       MIR_4_RB:      5           8              5       3
+      MIR_4_RBP:      3           3              1       4
+       MIR_5_FF:      1          14             17      76
+        MIR_5_K:      1           4              6       4
+       MIR_5_KL:      -           1              -       -
+        MIR_5_R:      2           8             15      60
+       MIR_5_RB:      2           6              6       1
+      MIR_5_RBP:      1           1              1       2
+       MIR_6_FF:      -           5             13      67
+        MIR_6_K:      1           2              4       5
+       MIR_6_KL:      -           1              1       1
+        MIR_6_R:      -           3             12      61
+       MIR_6_RB:      1           7              3       2
+      MIR_6_RBP:      -           3              -       -
+   ZERO_HALF_FF:     13          63            168   1'258
+    ZERO_HALF_K:     20          21             38      32
+   ZERO_HALF_KL:     24          33             43      17
+    ZERO_HALF_R:    119         748          2'444   1'921
+   ZERO_HALF_RB:     20          23             52       3
+  ZERO_HALF_RBP:     10          15             37       2
+
+LNS stats           Improv/Calls  Closed  Difficulty  TimeLimit
+  'graph_arc_lns':        16/291     53%    8.87e-01       0.11
+  'graph_cst_lns':        21/296     54%    9.45e-01       0.11
+  'graph_dec_lns':        33/249     54%    9.23e-01       0.11
+  'graph_var_lns':        14/281     54%    9.36e-01       0.11
+      'rins/rens':        18/215     51%    4.13e-01       0.11
+    'rnd_cst_lns':        21/272     55%    9.51e-01       0.11
+    'rnd_var_lns':        15/231     52%    9.03e-01       0.11
+
+LS stats                                Batches  Restarts/Perturbs   LinMoves  GenMoves  CompoundMoves  Bactracks  WeightUpdates  ScoreComputed
+                         'ls_restart':       57                 33    901'866        70              0          0        140'853      4'513'678
+                'ls_restart_compound':       53                 40          0   191'304         14'585     88'313            805      5'638'407
+        'ls_restart_compound_perturb':       58                 30          0   274'954         22'217    126'332            836      7'436'600
+                   'ls_restart_decay':       58                 35    784'311         0              0          0          7'220      3'281'388
+          'ls_restart_decay_compound':       44                 33          0   180'504         24'482     77'968            519      6'047'651
+  'ls_restart_decay_compound_perturb':       64                 39          0   298'970         45'418    126'709            667      8'229'754
+           'ls_restart_decay_perturb':       51                 42    642'111    24'637              0          0          6'130      3'610'771
+                 'ls_restart_perturb':       69                 40  1'038'819        64              0          0        135'833      5'403'571
+
+Solutions (127)                         Num       Rank
+                               'core':    4   [61,123]
+                              'fixed':    2    [40,41]
+                      'graph_arc_lns':   22    [1,110]
+                      'graph_cst_lns':    6    [14,96]
+                      'graph_dec_lns':   48    [3,122]
+                      'graph_var_lns':   16    [5,116]
+                         'ls_restart':    8    [43,73]
+                'ls_restart_compound':   28    [9,118]
+        'ls_restart_compound_perturb':    8   [26,112]
+                   'ls_restart_decay':   12     [2,92]
+          'ls_restart_decay_compound':   16   [30,119]
+  'ls_restart_decay_compound_perturb':   14   [18,100]
+           'ls_restart_decay_perturb':   14   [20,117]
+                 'ls_restart_perturb':   14   [19,125]
+                             'max_lp':    2  [126,127]
+                              'no_lp':    2      [0,1]
+                      'quick_restart':    4  [119,124]
+                        'rins_lp_lns':    2  [125,126]
+                        'rnd_cst_lns':   10     [6,83]
+                        'rnd_var_lns':   22   [10,115]
+
+Objective bounds     Num
+       'bool_core':  185
+      'default_lp':    3
+           'fixed':    1
+  'initial_domain':    1
+          'max_lp':   13
+           'no_lp':   12
+   'quick_restart':    5
+
+Solution repositories    Added  Queried  Synchro
+    'alternative_path':    182      927      182
+      'best_solutions':    919    1'639      795
+   'fj solution hints':      0        0        0
+        'lp solutions':    322      273      319
+                'pump':      0        0
+
+Improving bounds shared      Num  Sym
+                  'core':     82    0
+            'default_lp':    974    0
+                'max_lp':  5'527    0
+                 'no_lp':     10    0
+         'quick_restart':  3'355    0
+
+Clauses shared        #Exported  #Imported  #BinaryRead  #BinaryTotal
+             'core':      2'142      3'908        2'612         2'612
+       'default_lp':        918      4'438        2'612         2'612
+            'fixed':          0          0          384         2'612
+  'fs_random_no_lp':          0          0            0         2'612
+           'max_lp':      2'478      3'692        2'612         2'612
+            'no_lp':        405          0          384         2'612
+    'quick_restart':      3'149      2'726        2'612         2'612
+
+LRAT_status: NA
+CpSolverResponse summary:
+status: FEASIBLE
+objective: 55440
+best_bound: 55340
+integers: 6791
+booleans: 5950
+conflicts: 0
+branches: 657
+propagations: 5292
+integer_propagations: 15604
+restarts: 0
+lp_iterations: 0
+walltime: 600.086
+usertime: 600.086
+deterministic_time: 624.369
+gap_integral: 3044.2
+solution_fingerprint: 0xed738a340a31c802
+
+Loading demand from test_data/demand_sample_hour_barra.csv ...
+  Warning: detected interval 60 min differs from configured 20 min. Using detected.
+Loading roster from test_data/roster_22_males.json ...
+  22 employees loaded.
+Scheduling 2025-03 (31 month days, 42 total with week padding, 13 slots/day, interval=60min)
+  Store type: mall
+  Closed days: []
+  Special days: ['sunday']
+  Start window: 10:00 - 15:00
+  Normal shift: 7.0h, Special shift: 7.0h
+
+Solving with 22 employees ...
+================================================================================
+SCHEDULE  |  22 employees  |  31 days
+Status: FEASIBLE  |  Objective: 55440.0
+Total understaff: 0  |  Total overstaff: 816
+================================================================================
+
+E001 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  OFF
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  OFF
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  OFF
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  OFF
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  10:00 - 17:00
+
+E002 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  OFF
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  OFF
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  OFF
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E003 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  OFF
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  OFF
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E004 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  OFF
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  OFF
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  OFF
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  OFF
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E005 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  OFF
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  OFF
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  OFF
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E006 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  OFF
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  10:00 - 17:00
+
+E007 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  OFF
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E008 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  OFF
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  10:00 - 17:00
+
+E009 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  OFF
+  2025-03-05 Wed:  10:00 - 17:00
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  OFF
+  2025-03-11 Tue:  10:00 - 17:00
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  10:00 - 17:00
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  10:00 - 17:00
+
+E010 (M)  |  Start: 10:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  10:00 - 17:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  10:00 - 17:00
+  2025-03-04 Tue:  10:00 - 17:00
+  2025-03-05 Wed:  OFF
+  2025-03-06 Thu:  10:00 - 17:00
+  2025-03-07 Fri:  10:00 - 17:00
+  2025-03-08 Sat:  10:00 - 17:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  10:00 - 17:00
+  2025-03-11 Tue:  OFF
+  2025-03-12 Wed:  10:00 - 17:00
+  2025-03-13 Thu:  10:00 - 17:00
+  2025-03-14 Fri:  10:00 - 17:00
+  2025-03-15 Sat:  10:00 - 17:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  OFF
+  2025-03-18 Tue:  10:00 - 17:00
+  2025-03-19 Wed:  10:00 - 17:00
+  2025-03-20 Thu:  10:00 - 17:00
+  2025-03-21 Fri:  10:00 - 17:00
+  2025-03-22 Sat:  10:00 - 17:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  10:00 - 17:00
+  2025-03-25 Tue:  10:00 - 17:00
+  2025-03-26 Wed:  10:00 - 17:00
+  2025-03-27 Thu:  10:00 - 17:00
+  2025-03-28 Fri:  10:00 - 17:00
+  2025-03-29 Sat:  10:00 - 17:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  10:00 - 17:00
+
+E011 (M)  |  Start: 11:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  11:00 - 18:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  11:00 - 18:00
+  2025-03-04 Tue:  11:00 - 18:00
+  2025-03-05 Wed:  11:00 - 18:00
+  2025-03-06 Thu:  11:00 - 18:00
+  2025-03-07 Fri:  11:00 - 18:00
+  2025-03-08 Sat:  11:00 - 18:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  11:00 - 18:00
+  2025-03-11 Tue:  11:00 - 18:00
+  2025-03-12 Wed:  11:00 - 18:00
+  2025-03-13 Thu:  11:00 - 18:00
+  2025-03-14 Fri:  11:00 - 18:00
+  2025-03-15 Sat:  11:00 - 18:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  11:00 - 18:00
+  2025-03-18 Tue:  11:00 - 18:00
+  2025-03-19 Wed:  11:00 - 18:00
+  2025-03-20 Thu:  11:00 - 18:00
+  2025-03-21 Fri:  OFF
+  2025-03-22 Sat:  11:00 - 18:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  11:00 - 18:00
+  2025-03-25 Tue:  11:00 - 18:00
+  2025-03-26 Wed:  11:00 - 18:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  11:00 - 18:00
+  2025-03-29 Sat:  11:00 - 18:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  11:00 - 18:00
+
+E012 (M)  |  Start: 12:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  12:00 - 19:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  12:00 - 19:00
+  2025-03-04 Tue:  12:00 - 19:00
+  2025-03-05 Wed:  12:00 - 19:00
+  2025-03-06 Thu:  12:00 - 19:00
+  2025-03-07 Fri:  12:00 - 19:00
+  2025-03-08 Sat:  12:00 - 19:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  12:00 - 19:00
+  2025-03-11 Tue:  12:00 - 19:00
+  2025-03-12 Wed:  12:00 - 19:00
+  2025-03-13 Thu:  OFF
+  2025-03-14 Fri:  12:00 - 19:00
+  2025-03-15 Sat:  12:00 - 19:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  12:00 - 19:00
+  2025-03-18 Tue:  12:00 - 19:00
+  2025-03-19 Wed:  12:00 - 19:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  12:00 - 19:00
+  2025-03-22 Sat:  12:00 - 19:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  12:00 - 19:00
+  2025-03-25 Tue:  12:00 - 19:00
+  2025-03-26 Wed:  OFF
+  2025-03-27 Thu:  12:00 - 19:00
+  2025-03-28 Fri:  12:00 - 19:00
+  2025-03-29 Sat:  12:00 - 19:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  12:00 - 19:00
+
+E013 (M)  |  Start: 13:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  13:00 - 20:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  13:00 - 20:00
+  2025-03-04 Tue:  OFF
+  2025-03-05 Wed:  13:00 - 20:00
+  2025-03-06 Thu:  13:00 - 20:00
+  2025-03-07 Fri:  13:00 - 20:00
+  2025-03-08 Sat:  13:00 - 20:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  OFF
+  2025-03-11 Tue:  13:00 - 20:00
+  2025-03-12 Wed:  13:00 - 20:00
+  2025-03-13 Thu:  13:00 - 20:00
+  2025-03-14 Fri:  13:00 - 20:00
+  2025-03-15 Sat:  13:00 - 20:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  13:00 - 20:00
+  2025-03-18 Tue:  13:00 - 20:00
+  2025-03-19 Wed:  13:00 - 20:00
+  2025-03-20 Thu:  13:00 - 20:00
+  2025-03-21 Fri:  OFF
+  2025-03-22 Sat:  13:00 - 20:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  13:00 - 20:00
+  2025-03-25 Tue:  13:00 - 20:00
+  2025-03-26 Wed:  13:00 - 20:00
+  2025-03-27 Thu:  13:00 - 20:00
+  2025-03-28 Fri:  OFF
+  2025-03-29 Sat:  13:00 - 20:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  13:00 - 20:00
+
+E014 (M)  |  Start: 13:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  13:00 - 20:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  13:00 - 20:00
+  2025-03-04 Tue:  13:00 - 20:00
+  2025-03-05 Wed:  OFF
+  2025-03-06 Thu:  13:00 - 20:00
+  2025-03-07 Fri:  13:00 - 20:00
+  2025-03-08 Sat:  13:00 - 20:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  13:00 - 20:00
+  2025-03-11 Tue:  OFF
+  2025-03-12 Wed:  13:00 - 20:00
+  2025-03-13 Thu:  13:00 - 20:00
+  2025-03-14 Fri:  13:00 - 20:00
+  2025-03-15 Sat:  13:00 - 20:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  13:00 - 20:00
+  2025-03-18 Tue:  13:00 - 20:00
+  2025-03-19 Wed:  13:00 - 20:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  13:00 - 20:00
+  2025-03-22 Sat:  13:00 - 20:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  13:00 - 20:00
+  2025-03-25 Tue:  13:00 - 20:00
+  2025-03-26 Wed:  13:00 - 20:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  13:00 - 20:00
+  2025-03-29 Sat:  13:00 - 20:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  13:00 - 20:00
+
+E015 (M)  |  Start: 13:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  13:00 - 20:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  13:00 - 20:00
+  2025-03-04 Tue:  13:00 - 20:00
+  2025-03-05 Wed:  13:00 - 20:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  13:00 - 20:00
+  2025-03-08 Sat:  13:00 - 20:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  13:00 - 20:00
+  2025-03-11 Tue:  13:00 - 20:00
+  2025-03-12 Wed:  OFF
+  2025-03-13 Thu:  13:00 - 20:00
+  2025-03-14 Fri:  13:00 - 20:00
+  2025-03-15 Sat:  13:00 - 20:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  13:00 - 20:00
+  2025-03-18 Tue:  OFF
+  2025-03-19 Wed:  13:00 - 20:00
+  2025-03-20 Thu:  13:00 - 20:00
+  2025-03-21 Fri:  13:00 - 20:00
+  2025-03-22 Sat:  13:00 - 20:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  13:00 - 20:00
+  2025-03-25 Tue:  13:00 - 20:00
+  2025-03-26 Wed:  13:00 - 20:00
+  2025-03-27 Thu:  13:00 - 20:00
+  2025-03-28 Fri:  13:00 - 20:00
+  2025-03-29 Sat:  13:00 - 20:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  13:00 - 20:00
+
+E016 (M)  |  Start: 14:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  14:00 - 21:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  14:00 - 21:00
+  2025-03-04 Tue:  14:00 - 21:00
+  2025-03-05 Wed:  14:00 - 21:00
+  2025-03-06 Thu:  14:00 - 21:00
+  2025-03-07 Fri:  14:00 - 21:00
+  2025-03-08 Sat:  14:00 - 21:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  14:00 - 21:00
+  2025-03-11 Tue:  14:00 - 21:00
+  2025-03-12 Wed:  14:00 - 21:00
+  2025-03-13 Thu:  14:00 - 21:00
+  2025-03-14 Fri:  OFF
+  2025-03-15 Sat:  14:00 - 21:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  14:00 - 21:00
+  2025-03-18 Tue:  OFF
+  2025-03-19 Wed:  14:00 - 21:00
+  2025-03-20 Thu:  14:00 - 21:00
+  2025-03-21 Fri:  14:00 - 21:00
+  2025-03-22 Sat:  14:00 - 21:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  14:00 - 21:00
+  2025-03-25 Tue:  OFF
+  2025-03-26 Wed:  14:00 - 21:00
+  2025-03-27 Thu:  14:00 - 21:00
+  2025-03-28 Fri:  14:00 - 21:00
+  2025-03-29 Sat:  14:00 - 21:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  14:00 - 21:00
+
+E017 (M)  |  Start: 14:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  14:00 - 21:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  14:00 - 21:00
+  2025-03-04 Tue:  14:00 - 21:00
+  2025-03-05 Wed:  OFF
+  2025-03-06 Thu:  14:00 - 21:00
+  2025-03-07 Fri:  14:00 - 21:00
+  2025-03-08 Sat:  14:00 - 21:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  14:00 - 21:00
+  2025-03-11 Tue:  14:00 - 21:00
+  2025-03-12 Wed:  14:00 - 21:00
+  2025-03-13 Thu:  14:00 - 21:00
+  2025-03-14 Fri:  OFF
+  2025-03-15 Sat:  14:00 - 21:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  14:00 - 21:00
+  2025-03-18 Tue:  14:00 - 21:00
+  2025-03-19 Wed:  14:00 - 21:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  14:00 - 21:00
+  2025-03-22 Sat:  14:00 - 21:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  14:00 - 21:00
+  2025-03-25 Tue:  14:00 - 21:00
+  2025-03-26 Wed:  OFF
+  2025-03-27 Thu:  14:00 - 21:00
+  2025-03-28 Fri:  14:00 - 21:00
+  2025-03-29 Sat:  14:00 - 21:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  14:00 - 21:00
+
+E018 (M)  |  Start: 14:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  14:00 - 21:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  14:00 - 21:00
+  2025-03-04 Tue:  14:00 - 21:00
+  2025-03-05 Wed:  14:00 - 21:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  14:00 - 21:00
+  2025-03-08 Sat:  14:00 - 21:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  14:00 - 21:00
+  2025-03-11 Tue:  14:00 - 21:00
+  2025-03-12 Wed:  14:00 - 21:00
+  2025-03-13 Thu:  OFF
+  2025-03-14 Fri:  14:00 - 21:00
+  2025-03-15 Sat:  14:00 - 21:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  14:00 - 21:00
+  2025-03-18 Tue:  14:00 - 21:00
+  2025-03-19 Wed:  14:00 - 21:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  14:00 - 21:00
+  2025-03-22 Sat:  14:00 - 21:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  14:00 - 21:00
+  2025-03-25 Tue:  14:00 - 21:00
+  2025-03-26 Wed:  14:00 - 21:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  14:00 - 21:00
+  2025-03-29 Sat:  14:00 - 21:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  14:00 - 21:00
+
+E019 (M)  |  Start: 15:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  15:00 - 22:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  15:00 - 22:00
+  2025-03-04 Tue:  15:00 - 22:00
+  2025-03-05 Wed:  15:00 - 22:00
+  2025-03-06 Thu:  15:00 - 22:00
+  2025-03-07 Fri:  15:00 - 22:00
+  2025-03-08 Sat:  15:00 - 22:00
+  2025-03-09 Sun:  OFF
+  2025-03-10 Mon:  15:00 - 22:00
+  2025-03-11 Tue:  15:00 - 22:00
+  2025-03-12 Wed:  15:00 - 22:00
+  2025-03-13 Thu:  OFF
+  2025-03-14 Fri:  15:00 - 22:00
+  2025-03-15 Sat:  15:00 - 22:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  15:00 - 22:00
+  2025-03-18 Tue:  15:00 - 22:00
+  2025-03-19 Wed:  15:00 - 22:00
+  2025-03-20 Thu:  OFF
+  2025-03-21 Fri:  15:00 - 22:00
+  2025-03-22 Sat:  15:00 - 22:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  15:00 - 22:00
+  2025-03-25 Tue:  15:00 - 22:00
+  2025-03-26 Wed:  15:00 - 22:00
+  2025-03-27 Thu:  OFF
+  2025-03-28 Fri:  15:00 - 22:00
+  2025-03-29 Sat:  15:00 - 22:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  15:00 - 22:00
+
+E020 (M)  |  Start: 15:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  15:00 - 22:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  OFF
+  2025-03-04 Tue:  15:00 - 22:00
+  2025-03-05 Wed:  15:00 - 22:00
+  2025-03-06 Thu:  15:00 - 22:00
+  2025-03-07 Fri:  15:00 - 22:00
+  2025-03-08 Sat:  15:00 - 22:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  OFF
+  2025-03-11 Tue:  15:00 - 22:00
+  2025-03-12 Wed:  15:00 - 22:00
+  2025-03-13 Thu:  15:00 - 22:00
+  2025-03-14 Fri:  15:00 - 22:00
+  2025-03-15 Sat:  15:00 - 22:00
+  2025-03-16 Sun:  OFF
+  2025-03-17 Mon:  15:00 - 22:00
+  2025-03-18 Tue:  15:00 - 22:00
+  2025-03-19 Wed:  15:00 - 22:00
+  2025-03-20 Thu:  15:00 - 22:00
+  2025-03-21 Fri:  15:00 - 22:00
+  2025-03-22 Sat:  15:00 - 22:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  15:00 - 22:00
+  2025-03-25 Tue:  15:00 - 22:00
+  2025-03-26 Wed:  15:00 - 22:00
+  2025-03-27 Thu:  15:00 - 22:00
+  2025-03-28 Fri:  15:00 - 22:00
+  2025-03-29 Sat:  15:00 - 22:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  15:00 - 22:00
+
+E021 (M)  |  Start: 15:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  15:00 - 22:00
+  2025-03-02 Sun:  OFF
+  2025-03-03 Mon:  15:00 - 22:00
+  2025-03-04 Tue:  15:00 - 22:00
+  2025-03-05 Wed:  15:00 - 22:00
+  2025-03-06 Thu:  OFF
+  2025-03-07 Fri:  15:00 - 22:00
+  2025-03-08 Sat:  15:00 - 22:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  15:00 - 22:00
+  2025-03-11 Tue:  15:00 - 22:00
+  2025-03-12 Wed:  OFF
+  2025-03-13 Thu:  15:00 - 22:00
+  2025-03-14 Fri:  15:00 - 22:00
+  2025-03-15 Sat:  15:00 - 22:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  15:00 - 22:00
+  2025-03-18 Tue:  OFF
+  2025-03-19 Wed:  15:00 - 22:00
+  2025-03-20 Thu:  15:00 - 22:00
+  2025-03-21 Fri:  15:00 - 22:00
+  2025-03-22 Sat:  15:00 - 22:00
+  2025-03-23 Sun:  13:00 - 20:00
+  2025-03-24 Mon:  15:00 - 22:00
+  2025-03-25 Tue:  OFF
+  2025-03-26 Wed:  15:00 - 22:00
+  2025-03-27 Thu:  15:00 - 22:00
+  2025-03-28 Fri:  15:00 - 22:00
+  2025-03-29 Sat:  15:00 - 22:00
+  2025-03-30 Sun:  13:00 - 20:00
+  2025-03-31 Mon:  15:00 - 22:00
+
+E022 (M)  |  Start: 15:00  |  26 work days
+------------------------------------------------------------
+  2025-03-01 Sat:  15:00 - 22:00
+  2025-03-02 Sun:  13:00 - 20:00
+  2025-03-03 Mon:  15:00 - 22:00
+  2025-03-04 Tue:  15:00 - 22:00
+  2025-03-05 Wed:  OFF
+  2025-03-06 Thu:  15:00 - 22:00
+  2025-03-07 Fri:  15:00 - 22:00
+  2025-03-08 Sat:  15:00 - 22:00
+  2025-03-09 Sun:  13:00 - 20:00
+  2025-03-10 Mon:  15:00 - 22:00
+  2025-03-11 Tue:  OFF
+  2025-03-12 Wed:  15:00 - 22:00
+  2025-03-13 Thu:  15:00 - 22:00
+  2025-03-14 Fri:  15:00 - 22:00
+  2025-03-15 Sat:  15:00 - 22:00
+  2025-03-16 Sun:  13:00 - 20:00
+  2025-03-17 Mon:  OFF
+  2025-03-18 Tue:  15:00 - 22:00
+  2025-03-19 Wed:  15:00 - 22:00
+  2025-03-20 Thu:  15:00 - 22:00
+  2025-03-21 Fri:  15:00 - 22:00
+  2025-03-22 Sat:  15:00 - 22:00
+  2025-03-23 Sun:  OFF
+  2025-03-24 Mon:  15:00 - 22:00
+  2025-03-25 Tue:  15:00 - 22:00
+  2025-03-26 Wed:  15:00 - 22:00
+  2025-03-27 Thu:  15:00 - 22:00
+  2025-03-28 Fri:  15:00 - 22:00
+  2025-03-29 Sat:  15:00 - 22:00
+  2025-03-30 Sun:  OFF
+  2025-03-31 Mon:  15:00 - 22:00
+
+================================================================================
+WORK DAYS PER EMPLOYEE:
+  E001: 26
+  E002: 26
+  E003: 26
+  E004: 26
+  E005: 26
+  E006: 26
+  E007: 26
+  E008: 26
+  E009: 26
+  E010: 26
+  E011: 26
+  E012: 26
+  E013: 26
+  E014: 26
+  E015: 26
+  E016: 26
+  E017: 26
+  E018: 26
+  E019: 26
+  E020: 26
+  E021: 26
+  E022: 26
+
+              1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31
+             Sa  Su  Mo  Tu  We  Th  Fr  Sa  Su  Mo  Tu  We  Th  Fr  Sa  Su  Mo  Tu  We  Th  Fr  Sa  Su  Mo  Tu  We  Th  Fr  Sa  Su  Mo
+E001 (M):    10  13  10   O  10  10  10  10  13  10   O  10  10  10  10  13  10   O  10  10  10  10  13   O  10  10  10  10  10   O  10 (26)
+E002 (M):    10  13  10  10  10   O  10  10  13  10  10   O  10  10  10  13  10  10   O  10  10  10   O  10  10  10  10   O  10  13  10 (26)
+E003 (M):    10  13   O  10  10  10  10  10   O  10  10  10  10  10  10   O  10  10  10   O  10  10  13  10  10   O  10  10  10  13  10 (26)
+E004 (M):    10   O  10  10  10  10   O  10  13  10  10  10  10   O  10  13  10  10   O  10  10  10  13  10   O  10  10  10  10  13  10 (26)
+E005 (M):    10   O  10  10  10   O  10  10  13  10  10   O  10  10  10  13  10   O  10  10  10  10  13  10   O  10  10  10  10  13  10 (26)
+E006 (M):    10  13  10  10  10   O  10  10  13  10  10  10   O  10  10   O  10  10  10  10  10  10   O  10  10  10  10  10  10   O  10 (26)
+E007 (M):    10  13  10  10   O  10  10  10   O  10  10  10  10  10  10   O  10  10  10  10  10  10   O  10  10  10   O  10  10  13  10 (26)
+E008 (M):    10   O  10  10  10  10  10  10   O  10  10  10   O  10  10  13  10  10  10   O  10  10  13  10  10  10   O  10  10  13  10 (26)
+E009 (M):    10  13  10   O  10  10  10  10  13   O  10  10  10  10  10   O  10  10  10  10  10  10   O  10  10  10  10  10  10   O  10 (26)
+E010 (M):    10  13  10  10   O  10  10  10  13  10   O  10  10  10  10  13   O  10  10  10  10  10   O  10  10  10  10  10  10   O  10 (26)
+E011 (M):    11   O  11  11  11  11  11  11   O  11  11  11  11  11  11   O  11  11  11  11   O  11  13  11  11  11   O  11  11  13  11 (26)
+E012 (M):    12   O  12  12  12  12  12  12   O  12  12  12   O  12  12  13  12  12  12   O  12  12  13  12  12   O  12  12  12  13  12 (26)
+E013 (M):    13  13  13   O  13  13  13  13  13   O  13  13  13  13  13   O  13  13  13  13   O  13  13  13  13  13  13   O  13  13  13 (26)
+E014 (M):    13  13  13  13   O  13  13  13  13  13   O  13  13  13  13   O  13  13  13   O  13  13  13  13  13  13   O  13  13  13  13 (26)
+E015 (M):    13  13  13  13  13   O  13  13  13  13  13   O  13  13  13  13  13   O  13  13  13  13   O  13  13  13  13  13  13   O  13 (26)
+E016 (M):    14   O  14  14  14  14  14  14   O  14  14  14  14   O  14  13  14   O  14  14  14  14  13  14   O  14  14  14  14  13  14 (26)
+E017 (M):    14  13  14  14   O  14  14  14   O  14  14  14  14   O  14  13  14  14  14   O  14  14  13  14  14   O  14  14  14  13  14 (26)
+E018 (M):    14  13  14  14  14   O  14  14  13  14  14  14   O  14  14  13  14  14  14   O  14  14  13  14  14  14   O  14  14   O  14 (26)
+E019 (M):    15   O  15  15  15  15  15  15   O  15  15  15   O  15  15  13  15  15  15   O  15  15  13  15  15  15   O  15  15  13  15 (26)
+E020 (M):    15  13   O  15  15  15  15  15  13   O  15  15  15  15  15   O  15  15  15  15  15  15   O  15  15  15  15  15  15   O  15 (26)
+E021 (M):    15   O  15  15  15   O  15  15  13  15  15   O  15  15  15  13  15   O  15  15  15  15  13  15   O  15  15  15  15  13  15 (26)
+E022 (M):    15  13  15  15   O  15  15  15  13  15   O  15  15  15  15  13   O  15  15  15  15  15   O  15  15  15  15  15  15   O  15 (26)
+
+STAFF/DAY:   22  14  20  19  17  16  21  22  14  19  18  18  17  19  22  14  20  17  20  15  20  22  14  21  18  19  16  20  22  14  22
+
+==================================================================================================================================================================================================
+COVERAGE GRID (actual employees present per slot)
+==================================================================================================================================================================================================
+             1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19    20    21    22    23    24    25    26    27    28    29    30    31
+           Sat   Sun   Mon   Tue   Wed   Thu   Fri   Sat   Sun   Mon   Tue   Wed   Thu   Fri   Sat   Sun   Mon   Tue   Wed   Thu   Fri   Sat   Sun   Mon   Tue   Wed   Thu   Fri   Sat   Sun   Mon
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   09:00     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .     .
+   10:00    10     .    9+     8    8+    7+    9+    10     .    9+     8    8+    8+    9+    10     .    9+     8    8+    8+   10+    10     .    9+     8    9+    8+    9+    10     .   10+
+   11:00    11     .    10     9     9     8    10    11     .    10     9     9    9+    10    11     .    10     9     9    9+    10    11     .    10     9   10+     8    10    11     .   11+
+   12:00    12     .    11    10    10     9    11    12     .    11    10    10     9    11    12     .    11    10    10     9    11    12     .    11    10    10     9    11    12     .   12+
+   13:00   15+   14+   14+   12+   12+   11+   14+   15+   14+   13+   12+   12+   12+   14+   15+   14+   14+   12+   13+   11+   13+   15+   14+   14+   13+   13+   11+   13+   15+   14+   15+
+   14:00   18+   14+   17+   15+   14+   13+   17+   18+   14+   16+   15+   15+   14+   15+   18+   14+   17+   14+   16+   12+   16+   18+   14+   17+   15+   15+   13+   16+   18+   14+   18+
+   15:00   22+   14+   20+   19+   17+   16+   21+   22+   14+   19+   18+   18+   17+   19+   22+   14+   20+   17+   20+   15+   20+   22+   14+   21+   18+   19+   16+   20+   22+   14+   22+
+   16:00   22+    14   20+   19+   17+   16+   21+   22+    14   19+   18+   18+   17+   19+   22+    14   20+   17+   20+   15+   20+   22+    14   21+   18+   19+   16+   20+   22+    14   22+
+   17:00   12+   14+   11+   11+    9+    9+   12+   12+   14+   10+   10+   10+    9+   10+   12+   14+   11+    9+   12+    7+   10+   12+   14+   12+   10+   10+    8+   11+   12+   14+   12+
+   18:00   11+   14+   10+   10+    8+    8+   11+   11+   14+    9+    9+    9+    8+    9+   11+   14+   10+     8   11+     6   10+   11+   14+   11+    9+    9+    8+   10+   11+   14+   11+
+   19:00    10   14+    9+    9+     7    7+   10+    10   14+     8    8+    8+    8+     8    10   14+    9+     7   10+     6    9+    10   14+   10+    8+    9+    7+    9+    10   14+   10+
+   20:00     7     .     6    7+     5    5+    7+     7     .     6    6+    6+    5+     5     7     .     6     5    7+     4    7+     7     .    7+     5    6+    5+    7+     7     .    7+
+   21:00     4     .     3    4+     3     3    4+     4     .     3     3     3     3    4+     4     .     3     3    4+     3    4+     4     .    4+     3    4+     3    4+     4     .    4+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Legend:  N = exact match  N+ = overstaffed  N! = UNDERSTAFFED  . = no demand/coverage
+
+Done. Solver stats: CpSolverResponse summary:
+status: FEASIBLE
+objective: 55440
+best_bound: 55340
+integers: 6791
+booleans: 5950
+conflicts: 0
+branches: 657
+propagations: 5292
+integer_propagations: 15604
+restarts: 0
+lp_iterations: 0
+walltime: 600.086
+usertime: 600.086
+deterministic_time: 624.369
+gap_integral: 3044.2
+solution_fingerprint: 0xed738a340a31c802
+
