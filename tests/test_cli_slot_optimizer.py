@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 from ortools.sat.python import cp_model
@@ -13,6 +14,9 @@ from slot_optimizer import (
     _merge_config,
     build_slot_model,
     build_complete_week_dates,
+    build_demand_by_day_from_daily_dates,
+    detect_demand_mode_from_csv,
+    parse_demand_csv_daily,
     parse_demand_dict,
     parse_demand_csv,
     solve_once,
@@ -142,6 +146,7 @@ class TestSlotHelp(unittest.TestCase):
         self.assertIn("--max-off-gap-same-gender-scope", r.stdout)
         self.assertIn("--max-sunday-off-gap-same-gender", r.stdout)
         self.assertIn("--max-sunday-off-gap-same-gender-scope", r.stdout)
+        self.assertIn("--demand-mode", r.stdout)
 
 
 class TestSlotOffGapCLI(unittest.TestCase):
@@ -474,3 +479,145 @@ class TestGreedyStartHintBehavior(unittest.TestCase):
         cfg_on = _merge_config({**base_cfg, "use_greedy_start_hint": True})
         model_on, _ = build_slot_model(roster, demand, slot_minutes, dates, cfg_on)
         self.assertGreater(len(model_on.Proto().solution_hint.vars), 0)
+
+
+class TestDailyDemandMode(unittest.TestCase):
+    def _write_temp_csv(self, rows):
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
+        try:
+            tmp.write("\n".join(rows) + "\n")
+            tmp.flush()
+            return tmp.name
+        finally:
+            tmp.close()
+
+    def test_detect_mode_from_header(self):
+        weekly_path = self._write_temp_csv(
+            [
+                "time,monday,tuesday,wednesday,thursday,friday,saturday,sunday",
+                "10:00,1,1,1,1,1,1,1",
+            ]
+        )
+        daily_path = self._write_temp_csv(
+            [
+                "date,time,demand",
+                "2025-01-01,10:00,2",
+            ]
+        )
+        try:
+            self.assertEqual(detect_demand_mode_from_csv(weekly_path), "weekly")
+            self.assertEqual(detect_demand_mode_from_csv(daily_path), "daily")
+        finally:
+            os.remove(weekly_path)
+            os.remove(daily_path)
+
+    def test_primary_only_daily_is_padded_with_dow_mean_ceil(self):
+        dates, primary_start, primary_end = build_complete_week_dates(2025, 1)
+        rows = ["date,time,demand"]
+        for d in dates[primary_start:primary_end]:
+            rows.append(f"{d.isoformat()},10:00,{d.weekday() + 1}")
+        path = self._write_temp_csv(rows)
+        try:
+            daily_by_date, slot_minutes, _ = parse_demand_csv_daily(path)
+            demand_by_day = build_demand_by_day_from_daily_dates(
+                daily_by_date=daily_by_date,
+                dates=dates,
+                primary_start=primary_start,
+                primary_end=primary_end,
+                slot_minutes=slot_minutes,
+            )
+            for i, d in enumerate(dates):
+                self.assertEqual(demand_by_day[i][0], d.weekday() + 1)
+        finally:
+            os.remove(path)
+
+    def test_full_padded_daily_is_used_as_is(self):
+        dates, primary_start, primary_end = build_complete_week_dates(2025, 1)
+        rows = ["date,time,demand"]
+        expected = {}
+        for i, d in enumerate(dates):
+            val = (i % 5) + 2
+            rows.append(f"{d.isoformat()},10:00,{val}")
+            expected[d] = val
+        path = self._write_temp_csv(rows)
+        try:
+            daily_by_date, slot_minutes, _ = parse_demand_csv_daily(path)
+            demand_by_day = build_demand_by_day_from_daily_dates(
+                daily_by_date=daily_by_date,
+                dates=dates,
+                primary_start=primary_start,
+                primary_end=primary_end,
+                slot_minutes=slot_minutes,
+            )
+            for i, d in enumerate(dates):
+                self.assertEqual(demand_by_day[i][0], expected[d])
+        finally:
+            os.remove(path)
+
+    def test_partial_daily_date_coverage_is_rejected(self):
+        dates, primary_start, primary_end = build_complete_week_dates(2025, 1)
+        # Provide only part of the primary month -> invalid.
+        rows = ["date,time,demand"]
+        for d in dates[primary_start:primary_start + 5]:
+            rows.append(f"{d.isoformat()},10:00,3")
+        path = self._write_temp_csv(rows)
+        try:
+            daily_by_date, slot_minutes, _ = parse_demand_csv_daily(path)
+            with self.assertRaises(ValueError):
+                build_demand_by_day_from_daily_dates(
+                    daily_by_date=daily_by_date,
+                    dates=dates,
+                    primary_start=primary_start,
+                    primary_end=primary_end,
+                    slot_minutes=slot_minutes,
+                )
+        finally:
+            os.remove(path)
+
+    def test_weekly_and_equivalent_daily_have_same_objective(self):
+        weekly = {dn: {"10:00": i + 1} for i, dn in enumerate(DAY_NAMES)}
+        demand_weekly, slot_minutes, detected_interval = parse_demand_dict(weekly, slot_interval=60)
+        dates, primary_start, primary_end = build_complete_week_dates(2025, 1)
+
+        rows = ["date,time,demand"]
+        for d in dates[primary_start:primary_end]:
+            rows.append(f"{d.isoformat()},10:00,{d.weekday() + 1}")
+        daily_path = self._write_temp_csv(rows)
+        try:
+            daily_by_date, slot_minutes_daily, _ = parse_demand_csv_daily(daily_path)
+            demand_daily = build_demand_by_day_from_daily_dates(
+                daily_by_date=daily_by_date,
+                dates=dates,
+                primary_start=primary_start,
+                primary_end=primary_end,
+                slot_minutes=slot_minutes_daily,
+            )
+        finally:
+            os.remove(daily_path)
+
+        roster = [{"id": f"m{i}", "gender": "M"} for i in range(8)]
+        base_cfg = {
+            "year": 2025,
+            "month": 1,
+            "slot_interval": detected_interval,
+            "primary_start": primary_start,
+            "primary_end": primary_end,
+            "solver_time_limit": 1.0,
+            "normal_duration_hours": 1,
+            "special_duration_hours": 1,
+            "close_time": "11:00",
+            "closed_days": [],
+            "special_days": [],
+            "min_days_off_per_week": 0,
+            "max_consecutive_work_days": 0,
+            "max_consecutive_off_days": 0,
+            "minimize_off_days_penalty": 0,
+        }
+
+        weekly_cfg = _merge_config({**base_cfg, "demand_matrix_kind": "weekly"})
+        daily_cfg = _merge_config({**base_cfg, "demand_matrix_kind": "daily_by_day"})
+        res_weekly = solve_once(roster, demand_weekly, slot_minutes, dates, weekly_cfg)
+        res_daily = solve_once(roster, demand_daily, slot_minutes, dates, daily_cfg)
+        self.assertIn(res_weekly["status"], (cp_model.OPTIMAL, cp_model.FEASIBLE))
+        self.assertIn(res_daily["status"], (cp_model.OPTIMAL, cp_model.FEASIBLE))
+        self.assertEqual(res_weekly["objective"], res_daily["objective"])

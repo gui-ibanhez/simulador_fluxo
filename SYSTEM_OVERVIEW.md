@@ -346,6 +346,21 @@ Run `python store_staffing_optimizer.py --help` or `python store_optimizer_demo.
 
 ---
 
+### 10.1 slot_optimizer.py demand input modes
+
+`slot_optimizer.py` supports two demand table formats:
+
+- **Weekly profile** (current behavior): CSV columns `time,monday,...,sunday`.  
+  Internally this profile is expanded across calendar dates by weekday.
+- **Daily demand**: CSV rows `date,time,demand`.  
+  If daily data contains only primary-month dates, padded days are auto-filled with
+  **weekday mean per slot**, rounded with **ceiling**. If the file already contains
+  the full padded period dates, values are used as-is.
+
+Use `--demand-mode auto|weekly|daily` (default `auto`) to select/detect format.
+
+---
+
 ### 11. File summary
 
 | File | Purpose |

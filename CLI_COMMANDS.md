@@ -201,6 +201,30 @@ python store_staffing_optimizer.py --output_proto /tmp/optimizer_model.pbtxt --p
 python slot_optimizer.py --help
 ```
 
+### Demand mode (weekly + daily)
+Keep weekly profile behavior, or use date-level daily demand.
+```bash
+# Weekly profile (existing format: time,monday,...,sunday)
+python slot_optimizer.py \
+  --demand test_data/demand_sample_hour_barra.csv \
+  --demand-mode weekly \
+  --roster test_data/roster_barra_mixed.json \
+  --year 2025 --month 1
+
+# Daily long format (date,time,demand) with auto detection
+python slot_optimizer.py \
+  --demand test_data/demand_sample_hour_daily_primary_2025_01.csv \
+  --demand-mode auto \
+  --roster test_data/roster_barra_mixed.json \
+  --year 2025 --month 1 \
+  --normal-duration-hours 1 --special-duration-hours 1 --close-time 12:00
+```
+- `--demand-mode auto`: detects by header (`monday..sunday` => weekly, `date,time,demand` => daily).
+- Daily mode accepts either:
+  - primary month only (auto-padding with weekday mean + ceil), or
+  - full padded period (used as-is, no auto-padding).
+- Any other date coverage is rejected.
+
 ### Close-time-based last start
 Demand rows represent start windows, so you can provide demand until one interval before close (for example, demand up to 21:00 with store close at 22:00).
 ```bash

@@ -161,35 +161,42 @@ def slot_to_minutes(idx: int, slot_interval: int, first_slot_minutes: int) -> in
 
 
 def build_greedy_start_hint(
-    demand: List[List[int]],
+    demand_by_day: List[List[int]],
     possible_start_slots: List[int],
     normal_dur: int,
     num_slots: int,
-    normal_dows: List[int],
+    candidate_days: List[int],
 ) -> Tuple[int, Dict[int, int]]:
     """Build a greedy start-slot distribution for a representative normal day.
 
     Strategy:
-    - Pick the most demanding normal day-of-week (sum of slot demand).
+    - Pick the most demanding normal day (sum of slot demand).
     - Cover shortages left-to-right by adding one employee at the latest start
       that still covers the current slot.
 
-    Returns (reference_dow, counts_by_start_slot).
+    Returns (reference_day_idx, counts_by_start_slot).
     """
     if not possible_start_slots:
         return 0, {}
 
-    candidate_dows = normal_dows or list(range(7))
-    dow_totals: Dict[int, int] = {}
-    for dow in candidate_dows:
-        dow_totals[dow] = sum(
-            demand[t][dow] if t < len(demand) and dow < len(demand[t]) else 0
-            for t in range(num_slots)
-        )
-    reference_dow = max(candidate_dows, key=lambda d: (dow_totals[d], -d))
+    valid_days = [d for d in candidate_days if 0 <= d < len(demand_by_day)]
+    if not valid_days:
+        valid_days = list(range(len(demand_by_day)))
+    if not valid_days:
+        return 0, {}
+
+    reference_day = max(
+        valid_days,
+        key=lambda d: (
+            sum(demand_by_day[d][t] for t in range(min(num_slots, len(demand_by_day[d])))),
+            -d,
+        ),
+    )
 
     target = [
-        demand[t][reference_dow] if t < len(demand) and reference_dow < len(demand[t]) else 0
+        demand_by_day[reference_day][t]
+        if t < len(demand_by_day[reference_day])
+        else 0
         for t in range(num_slots)
     ]
     coverage = [0] * num_slots
@@ -209,14 +216,14 @@ def build_greedy_start_hint(
             for u in range(chosen_start, end):
                 coverage[u] += 1
 
-    return reference_dow, counts
+    return reference_day, counts
 
 
 # ---------------------------------------------------------------------------
 # Demand parsing
 # ---------------------------------------------------------------------------
 
-def parse_demand_csv(path: str) -> Tuple[List[List[int]], List[int], int]:
+def parse_demand_csv_weekly(path: str) -> Tuple[List[List[int]], List[int], int]:
     """Parse a demand CSV file.
 
     Expected format – first column is time, remaining 7 columns are
@@ -261,6 +268,105 @@ def parse_demand_csv(path: str) -> Tuple[List[List[int]], List[int], int]:
     return demand, slot_minutes, detected_interval
 
 
+def parse_demand_csv(path: str) -> Tuple[List[List[int]], List[int], int]:
+    """Backward-compatible weekly parser alias used by tests/legacy callers."""
+    return parse_demand_csv_weekly(path)
+
+
+def detect_demand_mode_from_csv(path: str) -> str:
+    """Detect demand CSV mode from header."""
+    p = Path(path)
+    with open(p, encoding="utf-8", newline="") as f:
+        first_line = f.readline()
+        delimiter = "\t" if "\t" in first_line else ","
+        f.seek(0)
+        reader = csv.reader(f, delimiter=delimiter)
+        try:
+            header = next(reader)
+        except StopIteration as exc:
+            raise ValueError("Demand CSV is empty") from exc
+    hdr_lower = {h.strip().lower() for h in header}
+    if all(dn in hdr_lower for dn in DAY_NAMES):
+        return "weekly"
+    if {"date", "time", "demand"}.issubset(hdr_lower):
+        return "daily"
+    raise ValueError(
+        "Could not detect demand CSV mode. Weekly expects monday..sunday columns; "
+        "daily expects date,time,demand columns."
+    )
+
+
+def parse_demand_csv_daily(path: str) -> Tuple[Dict[dt.date, List[int]], List[int], int]:
+    """Parse a daily demand CSV in long format: date,time,demand."""
+    p = Path(path)
+    by_date_and_time: Dict[dt.date, Dict[int, int]] = {}
+    all_times: set[int] = set()
+    with open(p, encoding="utf-8", newline="") as f:
+        reader = csv.reader(f, delimiter="\t" if "\t" in f.readline() else ",")
+        f.seek(0)
+        header = next(reader)
+        hdr_lower = [h.strip().lower() for h in header]
+        try:
+            date_col = hdr_lower.index("date")
+            time_col = hdr_lower.index("time")
+            demand_col = hdr_lower.index("demand")
+        except ValueError as exc:
+            raise ValueError(
+                "Daily demand CSV must contain columns: date,time,demand"
+            ) from exc
+
+        for row_idx, row in enumerate(reader, start=2):
+            if not row or not any(c.strip() for c in row):
+                continue
+            try:
+                date_str = row[date_col].strip()
+                time_str = row[time_col].strip()
+                demand_val = int(row[demand_col].strip())
+            except (IndexError, ValueError) as exc:
+                raise ValueError(f"Invalid daily demand row {row_idx}: {row}") from exc
+            if demand_val < 0:
+                raise ValueError(f"Daily demand must be >= 0 at row {row_idx}")
+
+            try:
+                date_obj = dt.date.fromisoformat(date_str)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid date at row {row_idx}: {date_str} (expected YYYY-MM-DD)"
+                ) from exc
+
+            t_min = time_str_to_minutes(time_str)
+            by_date_and_time.setdefault(date_obj, {})
+            if t_min in by_date_and_time[date_obj]:
+                raise ValueError(
+                    f"Duplicate daily demand row for date={date_obj.isoformat()} time={time_str}"
+                )
+            by_date_and_time[date_obj][t_min] = demand_val
+            all_times.add(t_min)
+
+    if not by_date_and_time:
+        raise ValueError("Daily demand CSV has no data rows")
+
+    slot_minutes = sorted(all_times)
+    if not slot_minutes:
+        raise ValueError("Daily demand CSV has no valid slot times")
+    detected_interval = (slot_minutes[1] - slot_minutes[0]) if len(slot_minutes) > 1 else 20
+
+    slot_pos = {m: i for i, m in enumerate(slot_minutes)}
+    by_date: Dict[dt.date, List[int]] = {}
+    for date_obj, slot_map in by_date_and_time.items():
+        missing = [minutes_to_time_str(m) for m in slot_minutes if m not in slot_map]
+        if missing:
+            raise ValueError(
+                f"Missing slot(s) for date {date_obj.isoformat()}: {', '.join(missing[:5])}"
+            )
+        vec = [0] * len(slot_minutes)
+        for t_min, val in slot_map.items():
+            vec[slot_pos[t_min]] = val
+        by_date[date_obj] = vec
+
+    return by_date, slot_minutes, detected_interval
+
+
 def parse_demand_dict(data: Dict[str, Dict[str, int]], slot_interval: int = 20) -> Tuple[List[List[int]], List[int], int]:
     """Parse a demand dict of the form {day_name: {time_str: count}}.
 
@@ -280,6 +386,121 @@ def parse_demand_dict(data: Dict[str, Dict[str, int]], slot_interval: int = 20) 
             demand[time_idx[m]][dow] = count
     detected = (sorted_times[1] - sorted_times[0]) if len(sorted_times) > 1 else slot_interval
     return demand, sorted_times, detected
+
+
+def normalize_weekly_demand_to_dates(
+    demand_weekly: List[List[int]], dates: List[dt.date], num_slots: int
+) -> List[List[int]]:
+    """Convert weekly matrix demand[slot][dow] into demand_by_day[day][slot]."""
+    for t, row in enumerate(demand_weekly):
+        if len(row) < 7:
+            raise ValueError(f"Weekly demand row {t} must have 7 day columns")
+    demand_by_day: List[List[int]] = []
+    for d, date_obj in enumerate(dates):
+        dow = date_obj.weekday()
+        demand_by_day.append(
+            [
+                demand_weekly[t][dow] if t < len(demand_weekly) else 0
+                for t in range(num_slots)
+            ]
+        )
+    return demand_by_day
+
+
+def build_demand_by_day_from_daily_dates(
+    daily_by_date: Dict[dt.date, List[int]],
+    dates: List[dt.date],
+    primary_start: int,
+    primary_end: int,
+    slot_minutes: List[int],
+) -> List[List[int]]:
+    """Build demand_by_day from daily data; auto-pad primary-only input using dow mean + ceil."""
+    horizon_dates = list(dates)
+    horizon_set = set(horizon_dates)
+    primary_dates = horizon_dates[primary_start:primary_end]
+    primary_set = set(primary_dates)
+    input_set = set(daily_by_date.keys())
+    num_slots = len(slot_minutes)
+
+    for d_obj, vec in daily_by_date.items():
+        if len(vec) != num_slots:
+            raise ValueError(
+                f"Date {d_obj.isoformat()} has {len(vec)} slots, expected {num_slots}"
+            )
+
+    if input_set == horizon_set:
+        return [list(daily_by_date[d_obj]) for d_obj in horizon_dates]
+
+    if input_set != primary_set:
+        raise ValueError(
+            "Daily demand dates must match either the primary month or the full padded period."
+        )
+
+    # Primary-only input: pad non-primary days using same weekday mean per slot, rounded up.
+    by_dow_slot: Dict[Tuple[int, int], List[int]] = {}
+    global_slot_vals: Dict[int, List[int]] = {t: [] for t in range(num_slots)}
+    for d_obj in primary_dates:
+        vec = daily_by_date[d_obj]
+        dow = d_obj.weekday()
+        for t, val in enumerate(vec):
+            by_dow_slot.setdefault((dow, t), []).append(val)
+            global_slot_vals[t].append(val)
+
+    demand_by_day: List[List[int]] = []
+    for idx, d_obj in enumerate(horizon_dates):
+        if primary_start <= idx < primary_end:
+            demand_by_day.append(list(daily_by_date[d_obj]))
+            continue
+        dow = d_obj.weekday()
+        padded_row: List[int] = []
+        for t in range(num_slots):
+            vals = by_dow_slot.get((dow, t), [])
+            if vals:
+                padded_row.append(int(math.ceil(sum(vals) / len(vals))))
+                continue
+            gvals = global_slot_vals.get(t, [])
+            if gvals:
+                padded_row.append(int(math.ceil(sum(gvals) / len(gvals))))
+            else:
+                padded_row.append(0)
+        demand_by_day.append(padded_row)
+    return demand_by_day
+
+
+def normalize_demand_for_dates(
+    demand_input: List[List[int]],
+    dates: List[dt.date],
+    slot_minutes: List[int],
+    cfg: Dict[str, Any],
+) -> List[List[int]]:
+    """Normalize demand input into demand_by_day[day_idx][slot_idx]."""
+    num_days = len(dates)
+    num_slots = len(slot_minutes)
+    kind = cfg.get("demand_matrix_kind", "auto")
+
+    if kind == "daily_by_day":
+        if len(demand_input) != num_days:
+            raise ValueError(
+                f"Daily demand matrix has {len(demand_input)} days, expected {num_days}"
+            )
+        for i, row in enumerate(demand_input):
+            if len(row) != num_slots:
+                raise ValueError(
+                    f"Daily demand row {i} has {len(row)} slots, expected {num_slots}"
+                )
+        return demand_input
+
+    if kind == "weekly":
+        return normalize_weekly_demand_to_dates(demand_input, dates, num_slots)
+
+    # Auto detect
+    looks_daily = len(demand_input) == num_days and all(
+        len(r) == num_slots for r in demand_input
+    )
+    looks_weekly = len(demand_input) == num_slots and all(len(r) >= 7 for r in demand_input)
+    if looks_daily and not looks_weekly:
+        return demand_input
+    return normalize_weekly_demand_to_dates(demand_input, dates, num_slots)
 
 
 # ---------------------------------------------------------------------------
@@ -519,7 +740,7 @@ def calendar_weeks(dates: List[dt.date]) -> List[List[int]]:
 
 def build_slot_model(
     roster: List[Dict[str, Any]],
-    demand: List[List[int]],       # demand[slot_idx][dow]
+    demand: List[List[int]],       # weekly demand[slot][dow] or daily demand_by_day[day][slot]
     slot_minutes: List[int],       # minutes-since-midnight per slot row
     dates: List[dt.date],
     cfg: Dict[str, Any],
@@ -531,6 +752,7 @@ def build_slot_model(
     num_days = len(dates)
     num_slots = len(slot_minutes)
     first_slot_min = slot_minutes[0]
+    demand_by_day = normalize_demand_for_dates(demand, dates, slot_minutes, cfg)
 
     logger.info("build_slot_model: %d employees, %d days, %d slots/day, interval=%d min",
                 num_employees, num_days, num_slots, interval)
@@ -585,11 +807,12 @@ def build_slot_model(
             "No valid special-day starts: close_time is earlier than one special shift."
         )
 
-    # First slot with demand per day-of-week (Mon..Sun)
+    # First slot with demand by day-of-week (computed from demand_by_day)
     first_demand_slot_by_dow: Dict[int, int] = {}
     for dow in range(7):
+        dow_day_indices = [d for d in range(num_days) if dates[d].weekday() == dow]
         for t in range(num_slots):
-            if t < len(demand) and dow < len(demand[t]) and demand[t][dow] > 0:
+            if any(demand_by_day[d][t] > 0 for d in dow_day_indices):
                 first_demand_slot_by_dow[dow] = t
                 break
 
@@ -657,6 +880,8 @@ def build_slot_model(
 
     def is_weekday_normal(d_idx: int) -> bool:
         return not is_closed(d_idx) and not is_special(d_idx)
+
+    normal_day_indices = [d for d in range(num_days) if is_weekday_normal(d)]
 
     # Day classification summary
     closed_days_count = sum(1 for d in range(num_days) if is_closed(d))
@@ -728,12 +953,12 @@ def build_slot_model(
                  len(starts_at), len(start_val))
 
     if cfg.get("use_greedy_start_hint", False):
-        hint_dow, hint_counts = build_greedy_start_hint(
-            demand=demand,
+        hint_day, hint_counts = build_greedy_start_hint(
+            demand_by_day=demand_by_day,
             possible_start_slots=possible_start_slots,
             normal_dur=normal_dur,
             num_slots=num_slots,
-            normal_dows=normal_dows,
+            candidate_days=normal_day_indices,
         )
         hint_sequence: List[int] = []
         for s in sorted(possible_start_slots, reverse=True):
@@ -756,8 +981,9 @@ def build_slot_model(
                 model.add_hint(starts_at[e, s], 1 if s == hs else 0)
 
         logger.info(
-            "Greedy start hint enabled: reference_dow=%s, distribution=%s",
-            DAY_NAMES[hint_dow],
+            "Greedy start hint enabled: reference_day=%s (%s), distribution=%s",
+            dates[hint_day].isoformat() if 0 <= hint_day < len(dates) else "n/a",
+            DAY_NAMES[dates[hint_day].weekday()] if 0 <= hint_day < len(dates) else "n/a",
             {
                 minutes_to_time_str(slot_to_minutes(s, interval, first_slot_min)): hint_counts.get(s, 0)
                 for s in possible_start_slots
@@ -909,7 +1135,7 @@ def build_slot_model(
                 model.add(cov_sum == sum(all_terms))
                 coverage_var[d, t] = cov_sum
 
-            req = demand[t][dow] if t < len(demand) and dow < len(demand[t]) else 0
+            req = demand_by_day[d][t]
             floor = cfg.get("min_staff_floor", 0)
             effective_req = max(req, floor) if not is_closed(d) else 0
 
@@ -1287,20 +1513,12 @@ def build_slot_model(
     if demand_spread_pen > 0:
         special_demand_wt = cfg.get("special_day_demand_weight", 1.0)
 
-        # 1. Compute per-DOW demand totals from the demand table
-        num_dow = len(demand[0]) if demand else 7
-        dow_demand = [0] * num_dow
-        for s_idx in range(num_slots):
-            for dow in range(num_dow):
-                dow_demand[dow] += demand[s_idx][dow]
-
-        # 2. Collect active (non-closed, demand > 0) days with raw weights
+        # 1. Collect active (non-closed, demand > 0) days with raw weights
         active_days_raw: List[Tuple[int, float]] = []
         for d in range(primary_start, primary_end):
             if is_closed(d):
                 continue
-            dow = dates[d].weekday()
-            w = float(dow_demand[dow])
+            w = float(sum(demand_by_day[d]))
             if w <= 0:
                 continue
             if is_special(d):
@@ -1580,6 +1798,7 @@ def build_slot_model(
         "coverage_var": coverage_var,
         "possible_start_slots": possible_start_slots,
         "special_start_slot_by_dow": special_start_slot_by_dow,
+        "demand_by_day": demand_by_day,
     }
     return model, variables
 
@@ -1698,7 +1917,7 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
     variables = result["variables"]
     roster = result["roster"]
     dates = result["dates"]
-    demand = result["demand"]
+    demand_by_day = variables["demand_by_day"]
     slot_minutes = result["slot_minutes"]
     cfg = result["cfg"]
 
@@ -1793,7 +2012,7 @@ def extract_solution(result: Dict[str, Any]) -> Dict[str, Any]:
         day_row = {"date": dates[d].isoformat(), "day": DAY_NAMES[dow], "slots": []}
         for t in range(num_slots):
             cov = solver.value(variables["coverage_var"][d, t])
-            req = demand[t][dow] if t < len(demand) and dow < len(demand[t]) else 0
+            req = demand_by_day[d][t]
             diff = cov - req
             if diff < 0:
                 total_understaff += abs(diff)
@@ -2115,6 +2334,15 @@ def build_cli_parser() -> argparse.ArgumentParser:
 
     # Tier 1
     p.add_argument("--demand", required=True, help="Path to demand CSV file")
+    p.add_argument(
+        "--demand-mode",
+        choices=["auto", "weekly", "daily"],
+        default="auto",
+        help=(
+            "Demand CSV mode. weekly=time,monday..sunday; daily=date,time,demand; "
+            "auto detects from header."
+        ),
+    )
     p.add_argument("--roster", required=True, help="Path to roster JSON/CSV file")
     p.add_argument("--year", type=int, default=DEFAULT_CONFIG["year"])
     p.add_argument("--month", type=int, default=DEFAULT_CONFIG["month"])
@@ -2419,9 +2647,45 @@ def main() -> None:
         "show_full_period": args.show_full_period,
     })
 
+    dates, primary_start, primary_end = build_complete_week_dates(
+        cfg["year"], cfg["month"],
+    )
+    cfg["primary_start"] = primary_start
+    cfg["primary_end"] = primary_end
+    month_days = primary_end - primary_start
+
     # Load inputs
     print(f"Loading demand from {args.demand} ...")
-    demand, slot_minutes, detected_interval = parse_demand_csv(args.demand)
+    resolved_mode = args.demand_mode
+    if resolved_mode == "auto":
+        resolved_mode = detect_demand_mode_from_csv(args.demand)
+
+    if resolved_mode == "weekly":
+        demand, slot_minutes, detected_interval = parse_demand_csv_weekly(args.demand)
+        cfg["demand_matrix_kind"] = "weekly"
+    else:
+        daily_by_date, slot_minutes, detected_interval = parse_demand_csv_daily(args.demand)
+        input_dates = set(daily_by_date.keys())
+        primary_dates = set(dates[primary_start:primary_end])
+        full_dates = set(dates)
+        if input_dates == primary_dates:
+            print("  Daily demand coverage: primary month only (auto-padding padded days with dow mean + ceil)")
+        elif input_dates == full_dates:
+            print("  Daily demand coverage: full padded horizon (using provided values as-is)")
+        else:
+            raise ValueError(
+                "Daily demand dates must match either primary month dates or the full padded period."
+            )
+        demand = build_demand_by_day_from_daily_dates(
+            daily_by_date=daily_by_date,
+            dates=dates,
+            primary_start=primary_start,
+            primary_end=primary_end,
+            slot_minutes=slot_minutes,
+        )
+        cfg["demand_matrix_kind"] = "daily_by_day"
+
+    print(f"  Demand mode: {resolved_mode}")
     if cfg["slot_interval"] != detected_interval:
         print(f"  Warning: detected interval {detected_interval} min differs from "
               f"configured {cfg['slot_interval']} min. Using detected.")
@@ -2430,13 +2694,6 @@ def main() -> None:
     print(f"Loading roster from {args.roster} ...")
     roster = load_roster(args.roster)
     print(f"  {len(roster)} employees loaded.")
-
-    dates, primary_start, primary_end = build_complete_week_dates(
-        cfg["year"], cfg["month"],
-    )
-    cfg["primary_start"] = primary_start
-    cfg["primary_end"] = primary_end
-    month_days = primary_end - primary_start
     print(f"Scheduling {cfg['year']}-{cfg['month']:02d} "
           f"({month_days} month days, {len(dates)} total with week padding, "
           f"{len(slot_minutes)} slots/day, interval={cfg['slot_interval']}min)")
