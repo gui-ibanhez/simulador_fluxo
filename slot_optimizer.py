@@ -63,6 +63,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "relax_cover":                True,
     "understaff_penalty":         100,
+    "quadratic_understaff_penalty": 0,
     "excess_penalty":             1,
     "minimize_off_days_penalty":  10,
 
@@ -78,8 +79,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "min_work_days_per_month":    20,
     "min_work_days_penalty":      10,
+    "min_workers_per_day":        None,    # hard minimum workers per (non-closed) day in primary month
+    "max_workers_per_day":        None,    # hard maximum workers per (non-closed) day in primary month
     "exact_work_days":            None,    # hard equality per employee when set
     "exact_work_days_scope":      "primary",  # "primary" month days or "full" padded horizon
+    "max_off_gap_same_gender":    None,    # hard max off-day gap within same gender
+    "max_off_gap_same_gender_scope": "primary",  # "primary" month days or "full" padded horizon
+    "max_sunday_off_gap_same_gender": None,  # hard max Sunday off-day gap within same gender
+    "max_sunday_off_gap_same_gender_scope": "primary",  # "primary" month Sundays or full padded Sundays
 
     # -- Tier 3 (disabled by default) --
     "closed_days":                None,    # auto from store_type
@@ -97,10 +104,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "previous_dates":             None,
     "stability_penalty":          0,
     "preferred_start_penalty":    0,
+    "use_greedy_start_hint":      False,
     "min_employees":              None,
     "max_employees":              None,
     "demand_spread_penalty":      0,
     "special_day_demand_weight":  1.0,
+    "end_month_sundays_count":    1,
+    "end_month_sunday_excess_weight": 0.25,
     "skip_compensation":          False,
     "show_full_period":           False,
 }
@@ -148,6 +158,58 @@ def slot_index(minutes: int, slot_interval: int, first_slot_minutes: int) -> int
 
 def slot_to_minutes(idx: int, slot_interval: int, first_slot_minutes: int) -> int:
     return first_slot_minutes + idx * slot_interval
+
+
+def build_greedy_start_hint(
+    demand: List[List[int]],
+    possible_start_slots: List[int],
+    normal_dur: int,
+    num_slots: int,
+    normal_dows: List[int],
+) -> Tuple[int, Dict[int, int]]:
+    """Build a greedy start-slot distribution for a representative normal day.
+
+    Strategy:
+    - Pick the most demanding normal day-of-week (sum of slot demand).
+    - Cover shortages left-to-right by adding one employee at the latest start
+      that still covers the current slot.
+
+    Returns (reference_dow, counts_by_start_slot).
+    """
+    if not possible_start_slots:
+        return 0, {}
+
+    candidate_dows = normal_dows or list(range(7))
+    dow_totals: Dict[int, int] = {}
+    for dow in candidate_dows:
+        dow_totals[dow] = sum(
+            demand[t][dow] if t < len(demand) and dow < len(demand[t]) else 0
+            for t in range(num_slots)
+        )
+    reference_dow = max(candidate_dows, key=lambda d: (dow_totals[d], -d))
+
+    target = [
+        demand[t][reference_dow] if t < len(demand) and reference_dow < len(demand[t]) else 0
+        for t in range(num_slots)
+    ]
+    coverage = [0] * num_slots
+    counts = {s: 0 for s in possible_start_slots}
+
+    for t in range(num_slots):
+        deficit = target[t] - coverage[t]
+        if deficit <= 0:
+            continue
+        candidates = [s for s in possible_start_slots if s <= t < s + normal_dur]
+        if not candidates:
+            continue
+        chosen_start = max(candidates)
+        for _ in range(deficit):
+            counts[chosen_start] += 1
+            end = min(num_slots, chosen_start + normal_dur)
+            for u in range(chosen_start, end):
+                coverage[u] += 1
+
+    return reference_dow, counts
 
 
 # ---------------------------------------------------------------------------
@@ -602,6 +664,25 @@ def build_slot_model(
     normal_days_count = sum(1 for d in range(num_days) if is_weekday_normal(d))
     logger.debug("Day classification: %d closed, %d special, %d normal (of %d total)",
                  closed_days_count, special_days_count, normal_days_count, num_days)
+    all_sunday_indices = [d for d in range(num_days) if dates[d].weekday() == 6]
+    sunday_indices = [d for d in range(primary_start, primary_end) if dates[d].weekday() == 6]
+    end_month_sundays_count = cfg.get("end_month_sundays_count", 0)
+    end_month_sunday_excess_weight = cfg.get("end_month_sunday_excess_weight", 1.0)
+    if end_month_sundays_count is None:
+        end_month_sundays_count = 0
+    if end_month_sundays_count < 0:
+        raise ValueError("end_month_sundays_count must be >= 0")
+    if end_month_sunday_excess_weight < 0:
+        raise ValueError("end_month_sunday_excess_weight must be >= 0")
+    target_sunday_indices: set[int] = set()
+    if end_month_sundays_count > 0 and sunday_indices:
+        target_sunday_indices = set(sunday_indices[-end_month_sundays_count:])
+        logger.info(
+            "End-month Sunday excess weighting enabled: count=%d, weight=%.3f, targets=%s",
+            end_month_sundays_count,
+            end_month_sunday_excess_weight,
+            [dates[d].isoformat() for d in sorted(target_sunday_indices)],
+        )
 
     # For each special DOW, start at first non-zero demand slot and enforce close-time limit.
     special_start_slot_by_dow: Dict[int, int] = {}
@@ -645,6 +726,43 @@ def build_slot_model(
 
     logger.debug("Created %d start_at booleans + %d start_val ints",
                  len(starts_at), len(start_val))
+
+    if cfg.get("use_greedy_start_hint", False):
+        hint_dow, hint_counts = build_greedy_start_hint(
+            demand=demand,
+            possible_start_slots=possible_start_slots,
+            normal_dur=normal_dur,
+            num_slots=num_slots,
+            normal_dows=normal_dows,
+        )
+        hint_sequence: List[int] = []
+        for s in sorted(possible_start_slots, reverse=True):
+            repeats = max(0, int(hint_counts.get(s, 0)))
+            if repeats > 0:
+                hint_sequence.extend([s] * repeats)
+
+        fallback_start = max(
+            possible_start_slots,
+            key=lambda s: (hint_counts.get(s, 0), s),
+        )
+        if len(hint_sequence) < num_employees:
+            hint_sequence.extend([fallback_start] * (num_employees - len(hint_sequence)))
+        hint_sequence = hint_sequence[:num_employees]
+
+        for e in range(num_employees):
+            hs = hint_sequence[e]
+            model.add_hint(start_val[e], hs)
+            for s in possible_start_slots:
+                model.add_hint(starts_at[e, s], 1 if s == hs else 0)
+
+        logger.info(
+            "Greedy start hint enabled: reference_dow=%s, distribution=%s",
+            DAY_NAMES[hint_dow],
+            {
+                minutes_to_time_str(slot_to_minutes(s, interval, first_slot_min)): hint_counts.get(s, 0)
+                for s in possible_start_slots
+            },
+        )
 
     # works[e, d] : boolean – employee works on day d
     works: Dict[Tuple[int, int], cp_model.BoolVarT] = {}
@@ -810,6 +928,12 @@ def build_slot_model(
                 model.add(understaff >= effective_req - cov_var)
                 obj_int_vars.append(understaff)
                 obj_int_coeffs.append(cfg["understaff_penalty"])
+                qusp = cfg.get("quadratic_understaff_penalty", 0)
+                if qusp > 0:
+                    understaff_sq = model.new_int_var(0, effective_req ** 2, f"ussq_{d}_{t}")
+                    model.add_multiplication_equality(understaff_sq, [understaff, understaff])
+                    obj_int_vars.append(understaff_sq)
+                    obj_int_coeffs.append(qusp)
             elif effective_req > 0:
                 model.add(cov_var >= effective_req)
 
@@ -819,8 +943,11 @@ def build_slot_model(
                 excess = model.new_int_var(0, num_employees, f"ov_{d}_{t}")
                 model.add(excess >= cov_var - max(req, 0))
                 if ep > 0:
+                    day_ep = ep
+                    if d in target_sunday_indices:
+                        day_ep = ep * end_month_sunday_excess_weight
                     obj_int_vars.append(excess)
-                    obj_int_coeffs.append(ep)
+                    obj_int_coeffs.append(day_ep)
                 if qep > 0:
                     excess_sq = model.new_int_var(0, num_employees ** 2, f"ovsq_{d}_{t}")
                     model.add_multiplication_equality(excess_sq, [excess, excess])
@@ -923,6 +1050,44 @@ def build_slot_model(
                 off_count = sum(1 - works[e, d] for d in non_closed_in_week)
                 model.add(off_count + closed_in_week >= min_off)
 
+    # --- Min workers per day (optional hard constraint, primary month only) ---
+    min_workers_per_day = cfg.get("min_workers_per_day")
+    if min_workers_per_day is not None:
+        if min_workers_per_day < 0:
+            raise ValueError("min_workers_per_day must be >= 0")
+        if min_workers_per_day > num_employees:
+            raise ValueError(
+                f"min_workers_per_day={min_workers_per_day} exceeds roster size ({num_employees})"
+            )
+        for d in range(primary_start, primary_end):
+            if is_closed(d):
+                continue
+            model.add(sum(works[e, d] for e in range(num_employees)) >= min_workers_per_day)
+        logger.info(
+            "Min workers/day hard constraint enabled: >=%d (primary month, non-closed days)",
+            min_workers_per_day,
+        )
+    max_workers_per_day = cfg.get("max_workers_per_day")
+    if max_workers_per_day is not None:
+        if max_workers_per_day < 0:
+            raise ValueError("max_workers_per_day must be >= 0")
+        if max_workers_per_day > num_employees:
+            raise ValueError(
+                f"max_workers_per_day={max_workers_per_day} exceeds roster size ({num_employees})"
+            )
+        if min_workers_per_day is not None and max_workers_per_day < min_workers_per_day:
+            raise ValueError(
+                "max_workers_per_day must be >= min_workers_per_day when both are set"
+            )
+        for d in range(primary_start, primary_end):
+            if is_closed(d):
+                continue
+            model.add(sum(works[e, d] for e in range(num_employees)) <= max_workers_per_day)
+        logger.info(
+            "Max workers/day hard constraint enabled: <=%d (primary month, non-closed days)",
+            max_workers_per_day,
+        )
+
     # --- Max shifts per week ---
     max_spw = cfg.get("max_shifts_per_week")
     if max_spw is not None and max_spw > 0:
@@ -980,13 +1145,10 @@ def build_slot_model(
                     )
 
     # --- Sunday constraints ---
-    # All Sundays (for alternation constraint that spans complete weeks)
-    all_sunday_indices = [d for d in range(num_days) if dates[d].weekday() == 6]
-    # Primary Sundays only (for monthly count constraints)
-    sunday_indices = [d for d in range(primary_start, primary_end)
-                      if dates[d].weekday() == 6]
 
     min_sun_off = cfg.get("min_sunday_off_per_month", 0)
+    if min_sun_off < 0:
+        raise ValueError("min_sunday_off_per_month must be >= 0")
     if min_sun_off > 0 and sunday_indices:
         for e in range(num_employees):
             # Count Sundays off within the primary month only
@@ -1009,6 +1171,41 @@ def build_slot_model(
                     s1, s2 = all_sunday_indices[i], all_sunday_indices[i + 1]
                     # At least one of the two Sundays must be off
                     model.add(works[e, s1] + works[e, s2] <= 1)
+
+    # Max Sunday off-day gap within same gender (optional hard constraint)
+    max_sun_off_gap = cfg.get("max_sunday_off_gap_same_gender")
+    if max_sun_off_gap is not None:
+        if max_sun_off_gap < 0:
+            raise ValueError("max_sunday_off_gap_same_gender must be >= 0")
+        sun_scope = cfg.get("max_sunday_off_gap_same_gender_scope", "primary")
+        scope_sundays = all_sunday_indices if sun_scope == "full" else sunday_indices
+        scope_label = "full period Sundays" if sun_scope == "full" else "primary month Sundays"
+        gender_groups: Dict[str, List[int]] = {"M": [], "F": []}
+        for e in range(num_employees):
+            g = str(roster[e].get("gender", "")).upper()
+            if g in gender_groups:
+                gender_groups[g].append(e)
+        for g, employees in gender_groups.items():
+            if len(employees) < 2 or not scope_sundays:
+                continue
+            sun_off_vars: List[cp_model.IntVar] = []
+            for e in employees:
+                sun_off_e = model.new_int_var(0, len(scope_sundays), f"sun_off_days_{g}_{e}")
+                model.add(
+                    sun_off_e
+                    == len(scope_sundays) - sum(works[e, d] for d in scope_sundays)
+                )
+                sun_off_vars.append(sun_off_e)
+            max_sun_off_g = model.new_int_var(0, len(scope_sundays), f"max_sun_off_{g}")
+            min_sun_off_g = model.new_int_var(0, len(scope_sundays), f"min_sun_off_{g}")
+            model.add_max_equality(max_sun_off_g, sun_off_vars)
+            model.add_min_equality(min_sun_off_g, sun_off_vars)
+            model.add(max_sun_off_g - min_sun_off_g <= max_sun_off_gap)
+        logger.info(
+            "Max Sunday off-day gap by gender hard constraint enabled: gap<=%d (%s)",
+            max_sun_off_gap,
+            scope_label,
+        )
 
     # Max weekend work for women (primary month only)
     max_ww = cfg.get("max_weekend_work_shifts_women")
@@ -1183,6 +1380,46 @@ def build_slot_model(
         logger.info(
             "Exact work days hard constraint enabled: %d days per employee (%s)",
             exact_wd,
+            scope_label,
+        )
+
+    # --- Max off-day gap within same gender (optional hard constraint) ---
+    max_off_gap = cfg.get("max_off_gap_same_gender")
+    if max_off_gap is not None:
+        if max_off_gap < 0:
+            raise ValueError("max_off_gap_same_gender must be >= 0")
+        gap_scope = cfg.get("max_off_gap_same_gender_scope", "primary")
+        if gap_scope == "full":
+            day_range = range(num_days)
+            scope_label = "full period"
+        else:
+            day_range = range(primary_start, primary_end)
+            scope_label = "primary month"
+        non_closed_days = [d for d in day_range if not is_closed(d)]
+        gender_groups: Dict[str, List[int]] = {"M": [], "F": []}
+        for e in range(num_employees):
+            g = str(roster[e].get("gender", "")).upper()
+            if g in gender_groups:
+                gender_groups[g].append(e)
+        for g, employees in gender_groups.items():
+            if len(employees) < 2:
+                continue
+            off_vars: List[cp_model.IntVar] = []
+            for e in employees:
+                off_e = model.new_int_var(0, len(non_closed_days), f"off_days_{g}_{e}")
+                model.add(
+                    off_e
+                    == len(non_closed_days) - sum(works[e, d] for d in non_closed_days)
+                )
+                off_vars.append(off_e)
+            max_off_g = model.new_int_var(0, len(non_closed_days), f"max_off_{g}")
+            min_off_g = model.new_int_var(0, len(non_closed_days), f"min_off_{g}")
+            model.add_max_equality(max_off_g, off_vars)
+            model.add_min_equality(min_off_g, off_vars)
+            model.add(max_off_g - min_off_g <= max_off_gap)
+        logger.info(
+            "Max off-day gap by gender hard constraint enabled: gap<=%d (%s)",
+            max_off_gap,
             scope_label,
         )
 
@@ -1906,6 +2143,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--relax-cover", action="store_true", default=True)
     p.add_argument("--no-relax-cover", dest="relax_cover", action="store_false")
     p.add_argument("--understaff-penalty", type=int, default=100)
+    p.add_argument("--quadratic-understaff-penalty", type=int, default=0)
     p.add_argument("--excess-penalty", type=int, default=1)
     p.add_argument("--minimize-off-days-penalty", type=int, default=10)
 
@@ -1916,17 +2154,77 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--women-sunday-off-alternate", action="store_true", default=True)
     p.add_argument("--no-women-sunday-off-alternate",
                     dest="women_sunday_off_alternate", action="store_false")
-    p.add_argument("--min-sunday-off-per-month", type=int, default=1)
+    p.add_argument(
+        "--min-sunday-off-per-month",
+        type=int,
+        default=DEFAULT_CONFIG["min_sunday_off_per_month"],
+        help=(
+            "Hard constraint: minimum Sundays off per employee in the primary month. "
+            "Applies to all employees. Use 0 to disable."
+        ),
+    )
 
     p.add_argument("--spread-shifts-penalty", type=int, default=5)
     p.add_argument("--spread-sunday-shifts-penalty", type=int, default=5)
 
     p.add_argument("--min-work-days-per-month", type=int, default=20)
     p.add_argument("--min-work-days-penalty", type=int, default=10)
+    p.add_argument(
+        "--min-workers-per-day",
+        type=int,
+        default=None,
+        help=(
+            "Hard constraint: minimum employees working on each non-closed day "
+            "in the primary month. Optional (unset = disabled)."
+        ),
+    )
+    p.add_argument(
+        "--max-workers-per-day",
+        type=int,
+        default=None,
+        help=(
+            "Hard constraint: maximum employees working on each non-closed day "
+            "in the primary month. Optional (unset = disabled)."
+        ),
+    )
     p.add_argument("--exact-work-days", type=int, default=None,
                     help="Hard constraint: each employee must work exactly this many days")
     p.add_argument("--exact-work-days-scope", choices=["primary", "full"], default="primary",
                     help="Scope for --exact-work-days: primary month or full padded period")
+    p.add_argument(
+        "--max-off-gap-same-gender",
+        type=int,
+        default=None,
+        help=(
+            "Hard constraint: in each gender group, max(off_days)-min(off_days) "
+            "cannot exceed this value. Optional (unset = disabled)."
+        ),
+    )
+    p.add_argument(
+        "--max-off-gap-same-gender-scope",
+        choices=["primary", "full"],
+        default="primary",
+        help=(
+            "Scope for --max-off-gap-same-gender: primary month or full padded period"
+        ),
+    )
+    p.add_argument(
+        "--max-sunday-off-gap-same-gender",
+        type=int,
+        default=None,
+        help=(
+            "Hard constraint: in each gender group, max(Sunday_off_days)-min(Sunday_off_days) "
+            "cannot exceed this value. Optional (unset = disabled)."
+        ),
+    )
+    p.add_argument(
+        "--max-sunday-off-gap-same-gender-scope",
+        choices=["primary", "full"],
+        default="primary",
+        help=(
+            "Scope for --max-sunday-off-gap-same-gender: primary month Sundays or full padded Sundays"
+        ),
+    )
 
     # Tier 3
     p.add_argument("--closed-days", type=int, nargs="*", default=None,
@@ -1941,6 +2239,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--min-sunday-off-women", type=int, default=0)
     p.add_argument("--stability-penalty", type=int, default=0)
     p.add_argument("--preferred-start-penalty", type=int, default=0)
+    p.add_argument("--use-greedy-start-hint", action="store_true", default=False,
+                    help="Build a greedy start-slot distribution from the most demanding normal "
+                         "day and pass it as CP-SAT hints.")
     p.add_argument("--min-employees", type=int, default=None,
                     help="Min roster size for roster search")
     p.add_argument("--max-employees", type=int, default=None,
@@ -1975,6 +2276,24 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--special-day-demand-weight", type=float, default=1.0,
                     help="Multiplier on special-day demand weights for proportional "
                          "staffing (e.g. 1.5 = treat special days as 50%% more demanding)")
+    p.add_argument(
+        "--end-month-sundays-count",
+        type=int,
+        default=DEFAULT_CONFIG["end_month_sundays_count"],
+        help=(
+            "Number of last Sundays in the primary month that get reduced excess "
+            "penalty weight (0 disables)."
+        ),
+    )
+    p.add_argument(
+        "--end-month-sunday-excess-weight",
+        type=float,
+        default=DEFAULT_CONFIG["end_month_sunday_excess_weight"],
+        help=(
+            "Multiplier applied to excess penalty on selected end-of-month Sundays "
+            "(e.g. 0.25 makes excess 4x cheaper on those Sundays)."
+        ),
+    )
     p.add_argument("--sequence-constraint", type=int, nargs=6, action="append",
                     default=None, dest="sequence_constraints",
                     metavar=("HARD_MIN", "SOFT_MIN", "MIN_COST",
@@ -2051,6 +2370,7 @@ def main() -> None:
         "solver_time_limit": args.solver_time_limit,
         "relax_cover": args.relax_cover,
         "understaff_penalty": args.understaff_penalty,
+        "quadratic_understaff_penalty": args.quadratic_understaff_penalty,
         "excess_penalty": args.excess_penalty,
         "minimize_off_days_penalty": args.minimize_off_days_penalty,
         "min_days_off_per_week": args.min_days_off_per_week,
@@ -2062,8 +2382,14 @@ def main() -> None:
         "spread_sunday_shifts_penalty": args.spread_sunday_shifts_penalty,
         "min_work_days_per_month": args.min_work_days_per_month,
         "min_work_days_penalty": args.min_work_days_penalty,
+        "min_workers_per_day": args.min_workers_per_day,
+        "max_workers_per_day": args.max_workers_per_day,
         "exact_work_days": args.exact_work_days,
         "exact_work_days_scope": args.exact_work_days_scope,
+        "max_off_gap_same_gender": args.max_off_gap_same_gender,
+        "max_off_gap_same_gender_scope": args.max_off_gap_same_gender_scope,
+        "max_sunday_off_gap_same_gender": args.max_sunday_off_gap_same_gender,
+        "max_sunday_off_gap_same_gender_scope": args.max_sunday_off_gap_same_gender_scope,
         "closed_days": args.closed_days,
         "special_days": args.special_days,
         "quadratic_excess_penalty": args.quadratic_excess_penalty,
@@ -2074,11 +2400,14 @@ def main() -> None:
         "min_sunday_off_women": args.min_sunday_off_women,
         "stability_penalty": args.stability_penalty,
         "preferred_start_penalty": args.preferred_start_penalty,
+        "use_greedy_start_hint": args.use_greedy_start_hint,
         "min_employees": args.min_employees,
         "max_employees": args.max_employees,
         "solver_log": args.solver_log,
         "demand_spread_penalty": args.demand_spread_penalty,
         "special_day_demand_weight": args.special_day_demand_weight,
+        "end_month_sundays_count": args.end_month_sundays_count,
+        "end_month_sunday_excess_weight": args.end_month_sunday_excess_weight,
         "skip_compensation": args.skip_compensation,
         "sequence_constraints": args.sequence_constraints or [],
         "start_var_strategy": args.start_var_strategy,
@@ -2118,12 +2447,41 @@ def main() -> None:
     print(f"  Closed days: {[DAY_NAMES[d] for d in cd]}")
     print(f"  Special days: {[DAY_NAMES[d] for d in sd]}")
     print(f"  Start window: {cfg['start_window'][0]} - {cfg['start_window'][1]}")
+    if cfg.get("use_greedy_start_hint"):
+        print("  Greedy start hint: enabled")
     close_time_display = cfg["close_time"] or f"{minutes_to_time_str(slot_minutes[-1] + cfg['slot_interval'])} (derived)"
     print(f"  Close time: {close_time_display}")
     print(f"  Normal shift: {cfg['normal_duration_hours']}h, "
           f"Special shift: {cfg['special_duration_hours']}h")
+    if cfg.get("min_workers_per_day") is not None:
+        print(f"  Min workers per day: {cfg['min_workers_per_day']} (primary, non-closed)")
+    if cfg.get("max_workers_per_day") is not None:
+        print(f"  Max workers per day: {cfg['max_workers_per_day']} (primary, non-closed)")
+    if cfg.get("end_month_sundays_count", 0) > 0:
+        print(
+            "  End-month Sunday excess weighting: "
+            f"last {cfg['end_month_sundays_count']} Sunday(s) x"
+            f"{cfg['end_month_sunday_excess_weight']}"
+        )
     if cfg.get("exact_work_days") is not None:
         print(f"  Exact work days: {cfg['exact_work_days']} ({cfg.get('exact_work_days_scope', 'primary')})")
+    if cfg.get("max_off_gap_same_gender") is not None:
+        print(
+            "  Max off-day gap same gender: "
+            f"{cfg['max_off_gap_same_gender']} "
+            f"({cfg.get('max_off_gap_same_gender_scope', 'primary')})"
+        )
+    if cfg.get("max_sunday_off_gap_same_gender") is not None:
+        print(
+            "  Max Sunday off-day gap same gender: "
+            f"{cfg['max_sunday_off_gap_same_gender']} "
+            f"({cfg.get('max_sunday_off_gap_same_gender_scope', 'primary')})"
+        )
+    min_sunday_off_cfg = cfg.get("min_sunday_off_per_month", 0)
+    print(
+        "  Min Sunday off per month (hard, all employees): "
+        f"{min_sunday_off_cfg} (primary)"
+    )
 
     # Solve
     do_search = cfg.get("min_employees") is not None and cfg.get("max_employees") is not None

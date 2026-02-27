@@ -103,6 +103,7 @@ python store_optimizer_demo.py --store_ids A,B --store_profiles A:weekend_heavy,
 
 ### Optimizer constraints
 Defaults: `--min_days_off_per_week 1`, `--max_shifts_per_week 6`, `--max_consecutive_work_days 5`, `--max_consecutive_off_days None`, `--min_sunday_off_per_month 1`, `--min_sunday_off_women 2`, `--women_sunday_off_alternate`, `--spread_sunday_shifts_penalty 10`, `--spread_shifts_penalty 0`, `--max_weekend_work_shifts_women None`, `--require_consecutive_off` disabled, `--minimize_off_days_penalty 1`. Use `0` to disable numeric constraints.
+- `--min_sunday_off_per_month`: Hard constraint for all employees (primary-month Sundays only). Default `1`; set `0` to disable.
 - `--require_consecutive_off`: When enabled, enforces that `min_days_off_per_week` must be consecutive (not scattered). Only applies when min_days_off >= 2. Uses rolling 7-day windows with automaton constraints.
 - `--minimize_off_days_penalty`: Penalty per off day for Solution 1 (actual roster). When > 0, the solver minimizes days off to maximize utilization. Does NOT affect Solution 2 (optimized roster search). Default 1, set to 0 to disable.
 ```bash
@@ -220,3 +221,19 @@ python slot_optimizer.py \
   --roster test_data/roster_barra_males.json \
   --year 2025 --month 1
 ```
+
+### End-of-month Sunday concentration + daily staffing cap
+Use reduced excess penalty on the last Sundays of the month, while enforcing hard min/max workers per non-closed day.
+```bash
+python slot_optimizer.py \
+  --demand test_data/demand_sample_hour_barra.csv \
+  --roster test_data/roster_barra_males.json \
+  --year 2025 --month 1 \
+  --min-workers-per-day 10 \
+  --max-workers-per-day 18 \
+  --end-month-sundays-count 1 \
+  --end-month-sunday-excess-weight 0.25
+```
+- `--max-workers-per-day`: Hard upper bound of employees working on each primary-month, non-closed day.
+- `--end-month-sundays-count`: Number of last Sundays in the primary month with discounted excess penalty (`0` disables).
+- `--end-month-sunday-excess-weight`: Multiplier applied to `--excess-penalty` on those selected Sundays.
