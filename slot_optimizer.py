@@ -914,10 +914,18 @@ def build_slot_model(
     special_last_slot = slot_index(special_last_start_min, interval, first_slot_min)
     for dow in special_dows:
         ss = first_demand_slot_by_dow.get(dow, possible_start_slots[0])
+        if ss < 0 or ss >= num_slots:
+            raise ValueError(
+                f"Special day {DAY_NAMES[dow]} start slot {ss} is outside demand grid bounds."
+            )
         if ss > special_last_slot:
             raise ValueError(
                 f"Special day {DAY_NAMES[dow]} has first demand slot after "
                 "latest allowed start (close_time - special_duration)."
+            )
+        if ss + special_dur > num_slots:
+            raise ValueError(
+                f"Special day {DAY_NAMES[dow]} start slot {ss} plus special duration exceeds demand grid."
             )
         special_start_slot_by_dow[dow] = ss
     for dow, ss in special_start_slot_by_dow.items():
@@ -1108,7 +1116,11 @@ def build_slot_model(
 
         for t in range(num_slots):
             # Base coverage: sum ws[e, s, d] for valid base starts
-            base_starts = _valid_base_starts(t, base_dur)
+            if is_spec:
+                s_fix = special_start_slot_by_dow[dow]
+                base_starts = [s_fix] if s_fix <= t < s_fix + base_dur else []
+            else:
+                base_starts = _valid_base_starts(t, base_dur)
             base_terms = [
                 ws[e, s, d]
                 for e in range(num_employees)

@@ -621,3 +621,66 @@ class TestDailyDemandMode(unittest.TestCase):
         self.assertIn(res_weekly["status"], (cp_model.OPTIMAL, cp_model.FEASIBLE))
         self.assertIn(res_daily["status"], (cp_model.OPTIMAL, cp_model.FEASIBLE))
         self.assertEqual(res_weekly["objective"], res_daily["objective"])
+
+
+class TestSpecialDayCoverageConsistency(unittest.TestCase):
+    def test_special_fixed_start_outside_normal_domain_still_counts_coverage(self):
+        # Build dates for Feb/2026 where Sundays are special for mall.
+        dates, primary_start, primary_end = build_complete_week_dates(2026, 2)
+
+        # Weekly-profile matrix with 12 slots (10:00..21:00).
+        # Sunday demand opens at 14:00 while normal days open at 10:00.
+        # With normal_duration=9h and close_time=22:00, normal start domain ends at 13:00.
+        # This reproduces the bug where special fixed start (14:00) was outside normal starts.
+        slot_minutes = [600 + 60 * i for i in range(12)]  # 10:00..21:00
+        demand_weekly = []
+        for _ in slot_minutes:
+            demand_weekly.append([0] * 7)
+        # Minimal weekday demand to keep model active.
+        demand_weekly[0][0] = 1  # Monday 10:00
+        # Sunday demand at 14:00 only.
+        sunday_slot_idx = 4  # 14:00
+        demand_weekly[sunday_slot_idx][6] = 1
+
+        roster = [{"id": f"m{i}", "gender": "M"} for i in range(3)]
+        cfg = _merge_config(
+            {
+                "year": 2026,
+                "month": 2,
+                "slot_interval": 60,
+                "primary_start": primary_start,
+                "primary_end": primary_end,
+                "solver_time_limit": 1.0,
+                "store_type": "mall",  # Sunday is special
+                "start_window": ("10:00", "15:00"),
+                "start_step": 60,
+                "close_time": "22:00",
+                "normal_duration_hours": 9,
+                "special_duration_hours": 7,
+                "min_days_off_per_week": 0,
+                "max_consecutive_work_days": 0,
+                "max_consecutive_off_days": 0,
+                "min_workers_per_day": 1,
+                "max_workers_per_day": 3,
+                "relax_cover": False,
+                "demand_matrix_kind": "weekly",
+            }
+        )
+
+        result = solve_once(roster, demand_weekly, slot_minutes, dates, cfg)
+        self.assertIn(result["status"], (cp_model.OPTIMAL, cp_model.FEASIBLE))
+
+        solver = result["solver"]
+        coverage_var = result["variables"]["coverage_var"]
+        # First Sunday of primary month is 2026-02-01.
+        sunday_idx = next(
+            d
+            for d in range(primary_start, primary_end)
+            if dates[d].isoformat() == "2026-02-01"
+        )
+        cov_1400 = solver.value(coverage_var[sunday_idx, sunday_slot_idx])
+        self.assertGreaterEqual(
+            cov_1400,
+            1,
+            "Special-day fixed start coverage at 14:00 should be counted, not zeroed.",
+        )
