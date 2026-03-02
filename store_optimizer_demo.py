@@ -608,6 +608,7 @@ def main():
     parser.add_argument("--quadratic_excess_penalty", type=int, default=0, help="Square the excess penalty to discourage spikes (e.g. prefer 1,1,1 over 0,0,3).")
     parser.add_argument("--max_shifts_per_week", type=int, default=6, help="Max working shifts per employee per week. Default 6 so min_days_off(1)+max_shifts(6)=7. Use 0 to disable.")
     parser.add_argument("--min_days_off_per_week", type=int, default=None, help="Min rest days per employee per week (Sun–Sat). Default 7 - max_shifts_per_week. Use 0 to disable.")
+    parser.add_argument("--max_days_off_per_week", type=int, default=0, help="Max rest days per employee per week (Sun–Sat). Use 0 to disable.")
     parser.add_argument("--max_consecutive_work_days", type=int, default=None, help="Max consecutive working days. Default max_shifts_per_week. Use 0 to disable.")
     parser.add_argument("--max_consecutive_off_days", type=int, default=None, help="Max consecutive off days per employee. None or 0 = disabled.")
     parser.add_argument(
@@ -745,6 +746,16 @@ def main():
         args.min_days_off_per_week = max(0, 7 - args.max_shifts_per_week)
     if args.max_consecutive_work_days is None:
         args.max_consecutive_work_days = args.max_shifts_per_week
+    if args.min_days_off_per_week is not None and args.min_days_off_per_week < 0:
+        raise ValueError("--min_days_off_per_week must be >= 0.")
+    if args.max_days_off_per_week is not None and args.max_days_off_per_week < 0:
+        raise ValueError("--max_days_off_per_week must be >= 0.")
+    if (
+        args.max_days_off_per_week
+        and args.min_days_off_per_week
+        and args.min_days_off_per_week > args.max_days_off_per_week
+    ):
+        raise ValueError("--min_days_off_per_week cannot be greater than --max_days_off_per_week.")
     store_ids = [s.strip() for s in args.store_ids.split(",") if s.strip()]
     if not store_ids:
         store_ids = ["store"]
@@ -955,6 +966,7 @@ def main():
             "weekly_sum_constraints": weekly_sum_constraints,
             "max_shifts_per_week": args.max_shifts_per_week if args.max_shifts_per_week else None,
             "min_days_off_per_week": args.min_days_off_per_week if args.min_days_off_per_week else None,
+            "max_days_off_per_week": args.max_days_off_per_week if args.max_days_off_per_week else None,
             "max_consecutive_work_days": args.max_consecutive_work_days if args.max_consecutive_work_days else None,
             "max_consecutive_off_days": args.max_consecutive_off_days if args.max_consecutive_off_days else None,
             "require_consecutive_off": args.require_consecutive_off,

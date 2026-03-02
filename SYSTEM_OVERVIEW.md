@@ -188,7 +188,7 @@ The scheduler receives demand \(r_{d,s}\) for each day \(d\) and work shift \(s\
    \sum_{e=0}^{N-1} x_{e,s,d} = 0.
    \]
 
-3. **Optional policy constraints** (if enabled): e.g. max working shifts per week per employee, min days off per week, max consecutive work days. These are linear or logical constraints on the \(x_{e,s,d}\).
+3. **Optional policy constraints** (if enabled): e.g. max working shifts per week per employee, min/max days off per week, max consecutive work days. These are linear or logical constraints on the \(x_{e,s,d}\).
 
 #### 4.3 Objective (what we minimize)
 
@@ -235,6 +235,7 @@ Each constraint can make the optimization infeasible. Below: what causes infeasi
 | **Cover** | For some day \(d\) and shift \(s\), demand \(r_{d,s}\) exceeds roster size \(N\). Example: day requires 6 morning + 5 afternoon = 11 people, but \(N = 10\). | Increase roster (hire) or reduce demand. Solution 1 uses relaxed model for a best-effort schedule with current roster. |
 | **Max shifts per week** | Total demand for work shifts in a week exceeds \(N \times \text{max\_shifts\_per\_week}\). Example: 8 people × 5 max = 40 shifts available, but demand needs 45. | Raise `max_shifts_per_week`, hire more people, or reduce demand. |
 | **Min days off per week** | Each employee needs at least \(k\) days off per week (Monday–Sunday). Partial weeks at month boundaries are completed with the previous month when `--previous_schedule` is used. Default \(k=1\); use 0 to disable. | Lower `min_days_off_per_week`, hire more, or reduce demand. |
+| **Max days off per week** | Each employee may have at most \(k\) days off per week (Monday–Sunday). If demand is low, this can conflict with required coverage patterns. Disabled by default; enable via `--max_days_off_per_week > 0`. | Raise `max_days_off_per_week`, increase demand, or disable with 0. |
 | **Min Sunday off per month** | Each employee must have at least \(k\) Sundays off in the primary month. Default \(k=1\); use 0 to disable. If demand forces too many people to work Sundays, the model becomes infeasible. | Lower `min_sunday_off_per_month`, hire more people, or reduce Sunday demand. |
 | **Max consecutive work days** | Demand pattern forces someone to work more than the limit in a row. Example: demand requires the same 5 people every day for 10 days, but max consecutive = 5. | Raise `max_consecutive_work_days`, hire more (spread load), or reduce demand. |
 | **Max consecutive off days** | Demand pattern leaves someone with too many consecutive off days. Example: low demand on weekends forces 3+ consecutive off days but max consecutive off = 2. | Raise `max_consecutive_off_days`, reduce demand elsewhere, or disable with 0. |
@@ -339,7 +340,7 @@ The system is split into three parts:
 - Demand source: `--demand` (direct | estimation), `--rule` (ratio | tiers | formula)
 - Direct bases: `--direct_base_M_weekday`, `--direct_base_A_weekday`, `--direct_base_M_weekend`, `--direct_base_A_weekend`
 - Estimation: `--customers_per_employee_M`, `--customers_per_employee_A`, `--min_employees_estimation`, `--base_employees`, `--tiers`
-- Constraints: `--excess_penalty_M`, `--excess_penalty_A`, `--max_shifts_per_week`, `--min_days_off_per_week`, `--max_consecutive_work_days`
+- Constraints: `--excess_penalty_M`, `--excess_penalty_A`, `--max_shifts_per_week`, `--min_days_off_per_week`, `--max_days_off_per_week`, `--max_consecutive_work_days`
 - Solver: `--params`, `--output_proto`
 
 Run `python store_staffing_optimizer.py --help` or `python store_optimizer_demo.py --help` for the full list.

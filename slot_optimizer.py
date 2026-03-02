@@ -95,6 +95,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "quadratic_excess_penalty":   0,
     "min_staff_floor":            0,
     "max_shifts_per_week":        None,
+    "max_days_off_per_week":      None,
     "require_consecutive_off":    False,
     "sequence_constraints":       [],
     "weekly_sum_constraints":     [],
@@ -1288,6 +1289,18 @@ def build_slot_model(
                 off_count = sum(1 - works[e, d] for d in non_closed_in_week)
                 model.add(off_count + closed_in_week >= min_off)
 
+    # --- Max days off per week ---
+    max_off = cfg.get("max_days_off_per_week")
+    if max_off is not None:
+        if max_off < 0:
+            raise ValueError("max_days_off_per_week must be >= 0")
+        for week_days in weeks:
+            non_closed_in_week = [d for d in week_days if not is_closed(d)]
+            closed_in_week = len(week_days) - len(non_closed_in_week)
+            for e in range(num_employees):
+                off_count = sum(1 - works[e, d] for d in non_closed_in_week)
+                model.add(off_count + closed_in_week <= max_off)
+
     # --- Min workers per day (optional hard constraint, primary month only) ---
     min_workers_per_day = cfg.get("min_workers_per_day")
     if min_workers_per_day is not None:
@@ -2388,6 +2401,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p.add_argument("--minimize-off-days-penalty", type=int, default=10)
 
     p.add_argument("--min-days-off-per-week", type=int, default=1)
+    p.add_argument(
+        "--max-days-off-per-week",
+        type=int,
+        default=None,
+        help="Hard constraint: maximum off days per employee per week (Mon-Sun). Optional (unset = disabled).",
+    )
     p.add_argument("--max-consecutive-work-days", type=int, default=6)
     p.add_argument("--max-consecutive-off-days", type=int, default=3)
 
@@ -2614,6 +2633,7 @@ def main() -> None:
         "excess_penalty": args.excess_penalty,
         "minimize_off_days_penalty": args.minimize_off_days_penalty,
         "min_days_off_per_week": args.min_days_off_per_week,
+        "max_days_off_per_week": args.max_days_off_per_week,
         "max_consecutive_work_days": args.max_consecutive_work_days,
         "max_consecutive_off_days": args.max_consecutive_off_days,
         "women_sunday_off_alternate": args.women_sunday_off_alternate,

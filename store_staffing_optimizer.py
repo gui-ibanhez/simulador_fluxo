@@ -601,6 +601,27 @@ def build_model(
                         >= required
                     )
 
+    # Optional max days off per week (Monday–Sunday). Uses calendar weeks; completes
+    # partial weeks with previous month when previous_schedule is provided.
+    max_days_off = constraints.get("max_days_off_per_week")
+    if off_index is not None and max_days_off is not None and max_days_off > 0:
+        for current_days, prev_days in _weeks_with_previous(dates, previous_dates):
+            for e in range(num_employees):
+                prev_off = 0
+                if previous_schedule and previous_dates and prev_days:
+                    emp_id = roster[e].get("id", f"emp_{e}")
+                    if emp_id in previous_schedule:
+                        prev_shifts = previous_schedule[emp_id]
+                        for pd in prev_days:
+                            if pd < len(prev_shifts) and prev_shifts[pd] == "O":
+                                prev_off += 1
+                allowed = max_days_off - prev_off
+                if current_days:
+                    model.add(
+                        sum(work[e, off_index, d] for d in current_days)
+                        <= allowed
+                    )
+
     # Optional: require min_days_off to be consecutive within rolling 7-day windows.
     # Uses an automaton to ensure at least min_days_off consecutive off days exist
     # in every 7-day window. Only applies when min_days_off >= 2.
@@ -1415,6 +1436,7 @@ def solve_store(
         "weekly_sum_constraints": [],
         "max_shifts_per_week": None,
         "min_days_off_per_week": None,
+        "max_days_off_per_week": None,
         "max_consecutive_work_days": None,
     }
 

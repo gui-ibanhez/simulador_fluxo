@@ -199,6 +199,11 @@ class TestDemoOptimizerConstraints(unittest.TestCase):
         r = run_demo("--min_days_off_per_week", "1", "--params", FAST_PARAMS)
         self.assertEqual(r.returncode, 0)
 
+    def test_max_days_off_per_week(self):
+        # store_optimizer_demo.py --max_days_off_per_week 2 --params max_time_in_seconds:0.5
+        r = run_demo("--max_days_off_per_week", "2", "--params", FAST_PARAMS)
+        self.assertEqual(r.returncode, 0)
+
     def test_max_consecutive_work_days(self):
         # store_optimizer_demo.py --max_consecutive_work_days 5 --params max_time_in_seconds:0.5
         r = run_demo("--max_consecutive_work_days", "5", "--params", FAST_PARAMS)

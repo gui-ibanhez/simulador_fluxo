@@ -46,6 +46,7 @@
 - For each (store, shift): **assigned employees ≥ required** (demand from Part 1).
 - Each employee is assigned at most once per shift (no double-booking in the same shift).
 - Optional: per-employee max number of shifts (e.g. max 5 per week).
+- Optional: per-employee min/max number of days off per week.
 - Optional: only assign where availability is True.
 - See **SYSTEM_OVERVIEW.md §4.5** for how each constraint can cause infeasibility and remedies.
 

@@ -146,6 +146,7 @@ class TestSlotHelp(unittest.TestCase):
         self.assertIn("--max-off-gap-same-gender-scope", r.stdout)
         self.assertIn("--max-sunday-off-gap-same-gender", r.stdout)
         self.assertIn("--max-sunday-off-gap-same-gender-scope", r.stdout)
+        self.assertIn("--max-days-off-per-week", r.stdout)
         self.assertIn("--demand-mode", r.stdout)
 
 
@@ -174,6 +175,14 @@ class TestSlotOffGapCLI(unittest.TestCase):
         )
         self.assertIn(r.returncode, (0, 1))
         self.assertIn("Min workers per day: 5 (primary, non-closed)", r.stdout)
+
+    def test_max_days_off_per_week_smoke(self):
+        r = run_slot(
+            *base_required_args(),
+            "--max-days-off-per-week",
+            "6",
+        )
+        self.assertIn(r.returncode, (0, 1))
 
     def test_off_gap_primary_scope_smoke(self):
         r = run_slot(
@@ -226,6 +235,16 @@ class TestSlotOffGapCLI(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         combined = f"{r.stdout}\n{r.stderr}"
         self.assertIn("min_sunday_off_per_month must be >= 0", combined)
+
+    def test_max_days_off_per_week_negative_rejected(self):
+        r = run_slot(
+            *base_required_args(),
+            "--max-days-off-per-week",
+            "-1",
+        )
+        self.assertNotEqual(r.returncode, 0)
+        combined = f"{r.stdout}\n{r.stderr}"
+        self.assertIn("max_days_off_per_week must be >= 0", combined)
 
 
 class TestSlotOffGapBehavior(unittest.TestCase):
@@ -397,6 +416,40 @@ class TestSlotMinWorkersPerDayBehavior(unittest.TestCase):
             self.assertGreaterEqual(
                 worked, 5, f"Day {dates[d]} has only {worked} workers (<5)"
             )
+
+
+class TestSlotMaxDaysOffBehavior(unittest.TestCase):
+    def test_max_days_off_per_week_can_make_model_infeasible(self):
+        # One employee, low demand (1 work day/week) + max off 2 => infeasible.
+        demand_dict = {dn: {"10:00": 0} for dn in DAY_NAMES}
+        demand_dict["monday"]["10:00"] = 1
+        demand, slot_minutes, detected_interval = parse_demand_dict(demand_dict, slot_interval=60)
+        dates, primary_start, primary_end = build_complete_week_dates(2025, 1)
+
+        roster = [{"id": "m1", "gender": "M"}]
+        cfg = _merge_config(
+            {
+                "year": 2025,
+                "month": 1,
+                "slot_interval": detected_interval,
+                "primary_start": primary_start,
+                "primary_end": primary_end,
+                "solver_time_limit": 1.0,
+                "normal_duration_hours": 1,
+                "special_duration_hours": 1,
+                "close_time": "11:00",
+                "closed_days": [],
+                "special_days": [],
+                "min_days_off_per_week": 0,
+                "max_days_off_per_week": 2,
+                "max_consecutive_work_days": 0,
+                "max_consecutive_off_days": 0,
+                "minimize_off_days_penalty": 0,
+            }
+        )
+
+        result = solve_once(roster, demand, slot_minutes, dates, cfg)
+        self.assertEqual(result["status"], cp_model.INFEASIBLE)
 
 
 class TestQuadraticUnderstaffBehavior(unittest.TestCase):

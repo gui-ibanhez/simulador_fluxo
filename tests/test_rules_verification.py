@@ -115,6 +115,24 @@ def test_constraint_min_days_off():
     status, _, _ = solve_with_model(1, dates, shifts, demand, constraints, roster)
     assert status == cp_model.INFEASIBLE
 
+
+def test_constraint_max_days_off():
+    """Verify max_days_off_per_week works as a hard constraint."""
+    year, month = 2025, 2
+    dates = build_dates(year, month)[:7]  # 1 week
+    shifts = ["O", "M"]
+    roster = [{"id": "bob", "gender": "M"}]
+
+    # Demand only on one day: employee would need 6 days off in the week.
+    demand = [{"M": 1}] + [{"M": 0} for _ in range(6)]
+
+    constraints = {
+        "max_days_off_per_week": 2
+    }
+
+    status, _, _ = solve_with_model(1, dates, shifts, demand, constraints, roster)
+    assert status == cp_model.INFEASIBLE
+
 def test_max_consecutive_work_days():
     """Verify max_consecutive_work_days."""
     year, month = 2025, 2
